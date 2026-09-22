@@ -39,7 +39,7 @@ To check the DMG, download its release's `SHA256SUMS.txt` into the same folder,
 open Terminal in that folder, and run (adjust the version for older releases):
 
 ```bash
-grep -F '  Sway-1.0.11-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
+grep -F '  Sway-1.0.12-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 Expect `OK`. A checksum confirms a match to the release files, not independent
@@ -210,7 +210,7 @@ signing/notarization: the first-install warning remains.
 
 ### Keeping Accessibility permission across updates
 
-Starting with **1.0.11**, releases use the same certificate-bound app identity
+Starting with **1.0.12**, releases use the same certificate-bound app identity
 and bundle identifier. Earlier ad-hoc signatures identified each build by its
 code hash, so macOS could not reliably carry permission across updates. The
 new identity removes that cause; it does not override permission revocation,
@@ -248,23 +248,28 @@ every push to main and on PRs. Main still cannot be deleted or force-pushed.
 Release tests and manual signing approval remain mandatory.
 
 Pushing main runs **Checks**; pushing a new version tag runs **Release**.
-For the prepared 1.0.11 changes, run this chain from the project directory. It
+For the prepared 1.0.12 changes, run this chain from the project directory. It
 stops at the first failure, commits before tagging, and pushes main and the tag
 together so the release cannot accidentally target the previous commit:
 
 ```bash
 git switch main &&
 git pull --ff-only origin main &&
-git add .github/ .gitignore README.md Sway/ContentView.swift Sway/Info.plist Sway/Sway.entitlements Sway.xcodeproj/project.pbxproj Tests/app_signing_regressions.py Tests/app_archive_regressions.py Tests/release_policy_regressions.rb scripts/app-signing.py scripts/safe-app-archive.py scripts/verify-release-downloads.py scripts/signing/ scripts/package-release.sh scripts/test-updater-bundle.sh scripts/verify-runtime.sh releases/INSTALL.txt releases/v1.0.11.md &&
-git commit -m "Use a persistent signing identity for Sway updates" &&
-git tag -a v1.0.11 -m "Sway 1.0.11" &&
-git push --atomic origin main v1.0.11
+git add .github/workflows/checks.yml .github/workflows/release.yml README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj Tests/app_signing_regressions.py Tests/release_policy_regressions.rb scripts/app-signing.py scripts/signing/README.md releases/INSTALL.txt releases/v1.0.12.md &&
+git commit -m "Fix signing Keychain setup for CI releases" &&
+git tag -a v1.0.12 -m "Sway 1.0.12" &&
+git push --atomic origin main v1.0.12
 ```
 
 The v1.0.7 build failed because a verification tool was missing. The v1.0.8
 tag was pushed before the fix merged and still points to 1.0.7 source, so its
 version check correctly stopped publication. Both tags stay unchanged; use
 the new version tag on the corrected source, not a rerun of either old tag.
+The v1.0.11 run stopped in its disposable app-signing test and did not publish.
+Its tag also stays unchanged. Version 1.0.12 explicitly registers the temporary
+signing Keychain, restores the original search list, and reports safe diagnostic
+categories if a signing tool fails. The pinned certificate and both private
+signing identities are unchanged.
 For later releases, update the app/project version and build number, add
 matching release notes, and use that new version consistently in this chain.
 
@@ -318,11 +323,11 @@ and billing settings.
 To build and verify the downloads locally without publishing:
 
 ```bash
-bash scripts/package-release.sh v1.0.11
+bash scripts/package-release.sh v1.0.12
 ```
 
 Packaging requires Python 3.10+, Xcode 26+, and access to both Keychain signing
-identities. Artifacts appear under **build/releases/v1.0.11/**; existing outputs
+identities. Artifacts appear under **build/releases/v1.0.12/**; existing outputs
 are never overwritten. **SWAY_DEFER_UPDATE_SIGNING=1** skips the update-feed
 signature only; it still requires the persistent app identity. For key-free
 development builds use `bash scripts/build.sh`, not release packaging.

@@ -33,6 +33,11 @@ jobs:
           bash scripts/release-version.sh "$GITHUB_REF_NAME"
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           test -s "releases/$GITHUB_REF_NAME.md"
+      - name: Test temporary app-signing identity
+        run: |
+          sw_vers -productVersion
+          python3 --version
+          python3 Tests/app_signing_regressions.py
       - name: Test without secrets or write permissions
         run: |
           bash scripts/test-gestures.sh
@@ -45,7 +50,6 @@ jobs:
           bash scripts/test-brightness.sh
           bash scripts/test-controls.sh
           ruby Tests/runtime_verification_regressions.rb
-          python3 Tests/app_signing_regressions.py
           python3 Tests/app_archive_regressions.py
           ruby Tests/release_policy_regressions.rb
       - name: Build and verify without private identities

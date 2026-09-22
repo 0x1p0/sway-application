@@ -8,6 +8,7 @@ import os
 import plistlib
 from pathlib import Path
 import secrets
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -20,15 +21,44 @@ ACCOUNT = "sway-application-0x1p0"
 SECRET = "SWAY_APP_SIGNING_IDENTITY"
 
 
-def run(*arguments, **kwargs):
-    # Never echo commands, environment values, or tool diagnostics: import
-    # commands contain a short-lived wrapping password, not the private key.
+class SigningToolError(RuntimeError):
+    """Only fixed, credential-free diagnostics may reach a workflow log."""
+
+    def __init__(self, arguments, result):
+        tool = Path(arguments[0]).name
+        operation = ""
+        if tool == "security" and arguments[1] in {
+            "list-keychains", "create-keychain", "set-keychain-settings", "unlock-keychain",
+            "import", "set-key-partition-list", "delete-keychain", "find-generic-password",
+        }:
+            operation = " " + arguments[1]
+        diagnostic = (result.stdout + result.stderr).lower()
+        reason = "tool returned an error; no raw output was logged"
+        for marker, explanation in (
+            (b"unable to build chain", "certificate chain could not be resolved"),
+            (b"cssmerr_tp_not_trusted", "certificate chain was not accepted"),
+            (b"user interaction is not allowed", "key access requires an unavailable prompt"),
+            (b"specified item could not be found", "signing identity was not found"),
+            (b"errsecinternalcomponent", "Security framework rejected signing (errSecInternalComponent)"),
+            (b"mac verification failed", "PKCS#12 could not be unlocked"),
+            (b"resource fork", "bundle contains unsupported extended attributes"),
+        ):
+            if marker in diagnostic:
+                reason = explanation
+                break
+        super().__init__(f"{tool}{operation} failed (exit {result.returncode}): {reason}")
+
+
+def run(*arguments, include_diagnostics=False, **kwargs):
+    # Never echo commands, environment values, or raw tool diagnostics: import
+    # commands contain a short-lived wrapping password. Classify known errors
+    # using fixed strings so CI remains diagnosable without leaking credentials.
     environment = {k: v for k, v in os.environ.items() if k not in (SECRET, "SPARKLE_PRIVATE_KEY")}
     result = subprocess.run(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             env=environment, **kwargs)
     if result.returncode:
-        raise RuntimeError(f"{Path(arguments[0]).name} failed (exit {result.returncode})")
-    return result.stdout
+        raise SigningToolError(arguments, result)
+    return result.stdout + result.stderr if include_diagnostics else result.stdout
 
 
 def requirement(certificate=CERTIFICATE, identifier=IDENTIFIER):
@@ -50,9 +80,8 @@ def verify(bundle, certificate=CERTIFICATE, identifier=IDENTIFIER):
         for arch in architectures:
             # Checking the signature alone does not guarantee the embedded DR
             # is restrictive. Require the pinned DR in EVERY executable slice.
-            result = subprocess.run(["/usr/bin/codesign", "--display", "--arch", arch,
-                                     "-r", "-", str(bundle)], capture_output=True, check=True)
-            lines = (result.stdout + result.stderr).decode().splitlines()
+            lines = run("/usr/bin/codesign", "--display", "--arch", arch,
+                        "-r", "-", str(bundle), include_diagnostics=True).decode().splitlines()
             if f"designated => {expected}" not in lines:
                 raise RuntimeError("App does not declare the pinned persistent identity")
             prefix = str(Path(temporary) / f"{arch}-")
@@ -69,8 +98,11 @@ def sign(bundle, payload, certificate=CERTIFICATE, identifier=IDENTIFIER):
     archive = base64.b64decode(payload["pkcs12"], validate=True)
     if not 1000 < len(archive) < 65536 or not isinstance(payload["password"], str) or len(payload["password"]) < 24:
         raise RuntimeError("Invalid signing identity data")
-    # Import into an isolated temporary keychain. Never change default/search
-    # keychains, system trust, installed apps, or the user's TCC permissions.
+    # --keychain restricts identity lookup, but codesign still uses the user
+    # search list to construct its certificate chain. Do not rely on creation
+    # implicitly registering the keychain: that differs across runner setups.
+    # Restore the original list even on failure. Never change the default
+    # keychain, certificate trust, installed apps, or TCC permissions.
     with tempfile.TemporaryDirectory(prefix="sway-app-signing.") as temporary:
         directory = Path(temporary)
         os.chmod(directory, 0o700)
@@ -79,23 +111,29 @@ def sign(bundle, payload, certificate=CERTIFICATE, identifier=IDENTIFIER):
         p12.chmod(0o600)
         keychain = directory / "signing.keychain-db"
         password = secrets.token_urlsafe(32)
+        original_keychains = shlex.split(run("/usr/bin/security", "list-keychains", "-d", "user").decode())
         created = False
         try:
             run("/usr/bin/security", "create-keychain", "-p", password, str(keychain))
             created = True
+            run("/usr/bin/security", "set-keychain-settings", "-lut", "1800", str(keychain))
             run("/usr/bin/security", "unlock-keychain", "-p", password, str(keychain))
             run("/usr/bin/security", "import", str(p12), "-k", str(keychain),
                 "-P", payload["password"], "-T", "/usr/bin/codesign")
             run("/usr/bin/security", "set-key-partition-list", "-S", "apple-tool:,apple:,codesign:",
                 "-s", "-k", password, str(keychain))
+            run("/usr/bin/security", "list-keychains", "-d", "user", "-s", str(keychain), *original_keychains)
             fingerprint = hashlib.sha1(certificate.read_bytes()).hexdigest()
             run("/usr/bin/codesign", "--force", "--sign", fingerprint, "--keychain", str(keychain),
                 "--timestamp=none", "--options", "runtime", "--identifier", identifier,
                 "--requirements", "=designated => " + requirement(certificate, identifier),
                 "--entitlements", str(ROOT / "Sway/Sway.entitlements"), str(bundle))
         finally:
-            if created:
-                run("/usr/bin/security", "delete-keychain", str(keychain))
+            try:
+                if created:
+                    run("/usr/bin/security", "delete-keychain", str(keychain))
+            finally:
+                run("/usr/bin/security", "list-keychains", "-d", "user", "-s", *original_keychains)
     verify(bundle, certificate, identifier)
 
 
@@ -127,6 +165,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except SigningToolError as error:
+        sys.exit(f"App identity verification/signing failed: {error}. Nothing was published.")
     except Exception:
         # JSON/base64/import errors may contain credential data. Do not expose
         # exception strings or tracebacks from a process holding the identity.

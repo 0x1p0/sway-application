@@ -18,6 +18,16 @@ in the approval-protected `release` environment. It is not a repository-level
 secret. Never print it, commit it, or regenerate it during a build. Keep an
 encrypted offline backup through a secure credential-management process.
 
+The signer unlocks a disposable Keychain, permits `/usr/bin/codesign` to use
+its imported private key, and explicitly adds that Keychain to the user's
+search list while signing. `codesign --keychain` selects the identity but does
+not replace the certificate-chain search list. The signer deletes its temporary
+Keychain and restores the original search list on both success and failure;
+it never changes the default Keychain or certificate trust. See
+[GitHub's macOS runner setup](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications).
+Workflow errors report only fixed diagnostic categories, never private values,
+command arguments, or raw security-tool output.
+
 The designated requirement pins both `com.trackpadcontrol.app` and this exact
 certificate. Release verification checks every executable architecture and
 compares the embedded certificate bytes with this file. Do not replace this

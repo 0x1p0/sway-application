@@ -22,6 +22,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Test temporary app-signing identity
+        run: |
+          sw_vers -productVersion
+          python3 --version
+          python3 Tests/app_signing_regressions.py
       - name: Test without release secrets
         run: |
           bash scripts/test-gestures.sh
@@ -34,7 +39,6 @@ jobs:
           bash scripts/test-brightness.sh
           bash scripts/test-controls.sh
           ruby Tests/runtime_verification_regressions.rb
-          python3 Tests/app_signing_regressions.py
           python3 Tests/app_archive_regressions.py
           ruby Tests/release_policy_regressions.rb
       - name: Build and verify hardened app

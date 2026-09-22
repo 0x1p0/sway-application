@@ -8,6 +8,7 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("signing", ROOT / "scripts/app-signing.py")
@@ -35,9 +36,91 @@ def run(*args):
     return subprocess.run(args, check=True, capture_output=True).stdout
 
 
+def keychain_lifecycle(failure=None, auto_register=False, initial=None):
+    """Model a fresh runner without needing another OS or real credentials."""
+    original = initial if initial is not None else ['/Users/Test User/login.keychain-db', '/tmp/keychain "quoted".keychain-db']
+    current = list(original)
+    events = []
+    imported = False
+    partitioned = False
+    configured = False
+    unlocked = False
+
+    def simulated_run(*args, **kwargs):
+        nonlocal current, imported, partitioned, configured, unlocked
+        action = args[1] if args[0] == '/usr/bin/security' else 'codesign'
+        if action == 'list-keychains':
+            if '-s' not in args:
+                return '\n'.join(json.dumps(item) for item in current).encode()
+            action = 'restore' if list(args[5:]) == original else 'register'
+        events.append(action)
+        if failure == action:
+            raise RuntimeError('simulated failure')
+        if failure == 'interrupted' and action == 'codesign':
+            raise KeyboardInterrupt()
+        if action == 'create-keychain' and auto_register:
+            current.append(args[-1])
+        elif action == 'set-keychain-settings':
+            configured = args[2:4] == ('-lut', '1800')
+        elif action == 'unlock-keychain':
+            unlocked = True
+        elif action == 'import':
+            expect('-A' not in args and args[-2:] == ('-T', '/usr/bin/codesign'), 'only codesign receives explicit private-key access')
+            imported = True
+        elif action == 'set-key-partition-list':
+            partitioned = True
+        elif action in ('register', 'restore'):
+            current = list(args[5:])
+        elif action == 'codesign':
+            keychain = args[args.index('--keychain') + 1]
+            expect(current == [keychain, *original], 'explicit search list must include the temporary chain exactly once')
+            expect(configured and unlocked and imported and partitioned, 'headless signing prerequisites precede codesign')
+        elif action == 'delete-keychain':
+            current = [item for item in current if item != args[-1]]
+        return b''
+
+    fake_payload = {'pkcs12': base64.b64encode(b'x' * 1001).decode(), 'password': 'disposable-test-password-only'}
+    with patch.object(signing, 'run', side_effect=simulated_run), patch.object(signing, 'verify') as verify:
+        try:
+            signing.sign(Path('/unused/Sway.app'), fake_payload)
+        except (RuntimeError, KeyboardInterrupt):
+            expect(failure is not None, 'only injected failures are expected')
+        else:
+            expect(failure is None, 'a lifecycle failure must stop signing')
+        expect(verify.call_count == (0 if failure else 1), 'verification only follows successful signing and cleanup')
+    expect(events[-1] == 'restore', 'restore must be attempted even if deletion fails')
+    expect(failure == 'restore' or current == original, 'original search list must be restored after success, failure, or interruption')
+    expect(('delete-keychain' in events) == (failure != 'create-keychain'), 'delete only a successfully created temporary keychain')
+    expect(not set(events) - {'create-keychain', 'set-keychain-settings', 'unlock-keychain', 'import',
+                            'set-key-partition-list', 'register', 'codesign', 'delete-keychain', 'restore'},
+           'never change the default keychain or certificate trust')
+
+
+keychain_lifecycle()  # No implicit search registration, like a fresh runner.
+keychain_lifecycle(auto_register=True)
+keychain_lifecycle(initial=[])
+for failure in ('create-keychain', 'set-keychain-settings', 'unlock-keychain', 'import',
+                'set-key-partition-list', 'register', 'codesign', 'delete-keychain', 'restore', 'interrupted'):
+    keychain_lifecycle(failure)
+
+sentinel = 'PRIVATE_TEST_VALUE_MUST_NOT_APPEAR_IN_LOGS'
+for diagnostic in (b'errSecInternalComponent', b'unable to build chain to self-signed root', b'unknown error'):
+    result = subprocess.CompletedProcess([], 1, sentinel.encode(), diagnostic + sentinel.encode())
+    with patch.object(signing.subprocess, 'run', return_value=result) as execute, patch.dict(os.environ, {signing.SECRET: sentinel, 'SPARKLE_PRIVATE_KEY': sentinel}):
+        try:
+            signing.run('/usr/bin/security', 'import', sentinel, '-P', sentinel)
+        except signing.SigningToolError as error:
+            expect(sentinel not in str(error) and 'security import failed' in str(error), 'safe diagnostics must not include arguments or raw output')
+        else:
+            raise AssertionError('tool failure must propagate')
+        child_env = execute.call_args.kwargs['env']
+        expect(signing.SECRET not in child_env and 'SPARKLE_PRIVATE_KEY' not in child_env, 'child tools must not inherit release secrets')
+
+
 with tempfile.TemporaryDirectory(prefix="sway-code-sign-tests.") as temporary:
     work = Path(temporary)
     before_keychains = run("/usr/bin/security", "list-keychains", "-d", "user")
+    before_default = run("/usr/bin/security", "default-keychain", "-d", "user")
     config = work / "certificate.cnf"
     config.write_text("[req]\ndistinguished_name=dn\n[dn]\nCN=Sway Test\n[signing]\nbasicConstraints=critical,CA:TRUE,pathlen:0\nkeyUsage=critical,digitalSignature,keyCertSign\nextendedKeyUsage=codeSigning\n")
     password = "disposable-signing-test-password-only"
@@ -108,5 +191,6 @@ with tempfile.TemporaryDirectory(prefix="sway-code-sign-tests.") as temporary:
     malformed = subprocess.run(["python3", str(ROOT / "scripts/app-signing.py"), "sign", str(unsigned)], env=env, capture_output=True)
     expect(malformed.returncode != 0 and sentinel.encode() not in malformed.stdout + malformed.stderr, "malformed secret fails without credential disclosure")
     expect(run("/usr/bin/security", "list-keychains", "-d", "user") == before_keychains, "temporary keychains must leave the search list unchanged")
+    expect(run("/usr/bin/security", "default-keychain", "-d", "user") == before_default, "temporary keychains must leave the default keychain unchanged")
 
 print(f"{checks} app-identity assertions passed with disposable keys and two different universal builds. No fixture ran; no TCC or trust settings changed.")
