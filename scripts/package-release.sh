@@ -25,6 +25,9 @@ if [[ ! -s "releases/v$version.md" ]]; then
     printf 'Missing release notes for v%s.\n' "$version" >&2
     exit 2
 fi
+# Packaging runs on a fresh runner, separate from the build and signing jobs.
+# Its checkout has no build directory; create it before either mktemp call.
+mkdir -p "$project_directory/build"
 if [[ -n "${2:-}" ]]; then
     # CI packages the exact ZIP from the isolated app signer. Never rebuild or
     # re-sign it on a runner that installs packaging dependencies.

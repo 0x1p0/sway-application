@@ -51,6 +51,7 @@ jobs:
           bash scripts/test-controls.sh
           ruby Tests/runtime_verification_regressions.rb
           python3 Tests/app_archive_regressions.py
+          python3 Tests/package_release_regressions.py
           ruby Tests/release_policy_regressions.rb
       - name: Build and verify without private identities
         run: |

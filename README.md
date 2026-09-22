@@ -39,7 +39,7 @@ To check the DMG, download its release's `SHA256SUMS.txt` into the same folder,
 open Terminal in that folder, and run (adjust the version for older releases):
 
 ```bash
-grep -F '  Sway-1.0.12-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
+grep -F '  Sway-1.0.13-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 Expect `OK`. A checksum confirms a match to the release files, not independent
@@ -210,7 +210,7 @@ signing/notarization: the first-install warning remains.
 
 ### Keeping Accessibility permission across updates
 
-Starting with **1.0.12**, releases use the same certificate-bound app identity
+Starting with **1.0.13**, releases use the same certificate-bound app identity
 and bundle identifier. Earlier ad-hoc signatures identified each build by its
 code hash, so macOS could not reliably carry permission across updates. The
 new identity removes that cause; it does not override permission revocation,
@@ -248,17 +248,17 @@ every push to main and on PRs. Main still cannot be deleted or force-pushed.
 Release tests and manual signing approval remain mandatory.
 
 Pushing main runs **Checks**; pushing a new version tag runs **Release**.
-For the prepared 1.0.12 changes, run this chain from the project directory. It
+For the prepared 1.0.13 changes, run this chain from the project directory. It
 stops at the first failure, commits before tagging, and pushes main and the tag
 together so the release cannot accidentally target the previous commit:
 
 ```bash
 git switch main &&
 git pull --ff-only origin main &&
-git add .github/workflows/checks.yml .github/workflows/release.yml README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj Tests/app_signing_regressions.py Tests/release_policy_regressions.rb scripts/app-signing.py scripts/signing/README.md releases/INSTALL.txt releases/v1.0.12.md &&
-git commit -m "Fix signing Keychain setup for CI releases" &&
-git tag -a v1.0.12 -m "Sway 1.0.12" &&
-git push --atomic origin main v1.0.12
+git add .github/CODEOWNERS .github/workflows/checks.yml .github/workflows/release.yml README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj Tests/package_release_regressions.py Tests/release_policy_regressions.rb scripts/package-release.sh releases/INSTALL.txt releases/v1.0.13.md &&
+git commit -m "Fix release packaging on clean runners" &&
+git tag -a v1.0.13 -m "Sway 1.0.13" &&
+git push --atomic origin main v1.0.13
 ```
 
 The v1.0.7 build failed because a verification tool was missing. The v1.0.8
@@ -270,6 +270,11 @@ Its tag also stays unchanged. Version 1.0.12 explicitly registers the temporary
 signing Keychain, restores the original search list, and reports safe diagnostic
 categories if a signing tool fails. The pinned certificate and both private
 signing identities are unchanged.
+Version 1.0.12 passed Checks, built the universal app, and signed it successfully,
+but packaging stopped because its fresh runner had no `build` directory.
+Version 1.0.13 makes packaging create its own staging parent and adds
+clean-checkout regression tests to both workflows. The failed tags stay unchanged;
+use the new tag rather than rerunning a workflow with the old packaging script.
 For later releases, update the app/project version and build number, add
 matching release notes, and use that new version consistently in this chain.
 
@@ -323,11 +328,11 @@ and billing settings.
 To build and verify the downloads locally without publishing:
 
 ```bash
-bash scripts/package-release.sh v1.0.12
+bash scripts/package-release.sh v1.0.13
 ```
 
 Packaging requires Python 3.10+, Xcode 26+, and access to both Keychain signing
-identities. Artifacts appear under **build/releases/v1.0.12/**; existing outputs
+identities. Artifacts appear under **build/releases/v1.0.13/**; existing outputs
 are never overwritten. **SWAY_DEFER_UPDATE_SIGNING=1** skips the update-feed
 signature only; it still requires the persistent app identity. For key-free
 development builds use `bash scripts/build.sh`, not release packaging.

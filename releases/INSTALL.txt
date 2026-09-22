@@ -24,7 +24,7 @@ Update signing does not remove the first-launch warning below.
 
 ACCESSIBILITY AFTER UPDATING
 
-From 1.0.12 onward, releases share a persistent app-signing identity rather
+From 1.0.13 onward, releases share a persistent app-signing identity rather
 than an ad-hoc signature that changes with each build. Keep Sway in Applications.
 Upgrading from 1.0.10 or earlier may need one final permission grant: if Sway
 looks enabled but gestures do not work, remove its old Accessibility entry,

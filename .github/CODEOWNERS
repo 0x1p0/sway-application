@@ -7,5 +7,6 @@
 /Sway/InAppUpdater.swift @0x1p0
 /Tests/app_signing_regressions.py @0x1p0
 /Tests/app_archive_regressions.py @0x1p0
+/Tests/package_release_regressions.py @0x1p0
 /Tests/release_policy_regressions.rb @0x1p0
 /Sway.xcodeproj/ @0x1p0

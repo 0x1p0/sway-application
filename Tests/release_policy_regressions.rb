@@ -58,6 +58,7 @@ expect.call(!checks.to_s.include?('secrets.'), 'PR checks must never reference s
   expect.call(job.fetch('steps').any? { |step| step['run'].to_s.include?('ruby Tests/runtime_verification_regressions.rb') }, 'both build paths must test runtime verification without optional tools')
   identity_test = job.fetch('steps').find { |step| step['name'] == 'Test temporary app-signing identity' }
   expect.call(identity_test && identity_test.fetch('run').include?('python3 Tests/app_signing_regressions.py'), 'both build paths must gate releases on disposable signing and cleanup tests')
+  expect.call(job.fetch('steps').any? { |step| step['run'].to_s.include?('python3 Tests/package_release_regressions.py') }, 'both build paths must test packaging without a pre-existing build directory')
 end
 [release, checks].each do |workflow|
   workflow.fetch('jobs').each_value do |job|
