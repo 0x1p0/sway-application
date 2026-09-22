@@ -39,7 +39,7 @@ To check the DMG, download its release's `SHA256SUMS.txt` into the same folder,
 open Terminal in that folder, and run (adjust the version for older releases):
 
 ```bash
-grep -F '  Sway-1.0.7-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
+grep -F '  Sway-1.0.8-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 Expect `OK`. A checksum confirms a match to the release files, not independent
@@ -196,7 +196,7 @@ in Sway; signature failures never fall back to unsigned updates. The installer
 starts only when requested, with automatic downloads and system profiling off.
 No second periodic updater runs alongside the daily metadata check.
 
-**Install 1.0.7 manually once from this repository.** Copies from the previous
+**Install 1.0.8 manually once from this repository.** Copies from the previous
 repository still point to its now-private update feed and cannot discover this
 release. Future signed releases from this repository can be installed directly. Keep Sway
 in Applications, not on its mounted DMG. Installation in a protected location
@@ -214,23 +214,28 @@ The fallback packages the executable, metadata, and app icon and verifies the lo
 
 ## Publish a release
 
-The repository starts with the current 1.0.7 source as one initial commit; old
+The repository began with the 1.0.7 source as one initial commit; old
 Git history and release notes are not included. Initial creation of main is
 allowed without an existing CI result. Once main exists, changes require
 **a pull request and a passing Sway checks result**.
 As a solo maintainer you can merge your own PR; this is a CI gate, not an
 independent second-person review. Do not push commits directly to main.
 
-The Release workflow runs only when a new version tag such as **v1.0.7** is
+The Release workflow runs only when a new version tag such as **v1.0.8** is
 pushed. First merge the release changes into main, then create the tag on that
 merged commit:
 
 ```bash
 git switch main
 git pull --ff-only origin main
-git tag -a v1.0.7 -m "Sway 1.0.7"
-git push origin v1.0.7
+git tag -a v1.0.8 -m "Sway 1.0.8"
+git push origin v1.0.8
 ```
+
+The v1.0.7 build failed before publication because a verification tool was
+missing on the runner. Its protected tag remains unchanged. Merge the 1.0.8
+fix through a passing PR, then use the new tag above; rerunning the old tag
+would still build the old code.
 
 Follow the run in [Actions](https://github.com/0x1p0/sway-application/actions):
 
@@ -275,11 +280,11 @@ and billing settings.
 To build and verify the downloads locally without publishing:
 
 ```bash
-bash scripts/package-release.sh v1.0.7
+bash scripts/package-release.sh v1.0.8
 ```
 
 Packaging requires Python 3.10+, Xcode 26+, and access to the existing Keychain
-signing key. Artifacts appear under **build/releases/v1.0.7/**; existing outputs
+signing key. Artifacts appear under **build/releases/v1.0.8/**; existing outputs
 are never overwritten. For a build without signing-key access, set
 **SWAY_DEFER_UPDATE_SIGNING=1**. This produces local unsigned update artifacts,
 not a publishable signed feed.
@@ -325,10 +330,16 @@ bash scripts/test-presentation.sh
 bash scripts/test-audio.sh
 bash scripts/test-brightness.sh
 bash scripts/test-controls.sh
+ruby Tests/runtime_verification_regressions.rb
 ruby Tests/release_policy_regressions.rb
 ```
 
 These feed synthetic contact sequences into the recognizer, validate native record handling, and check settings normalization, controller scheduling, and control-model behavior using isolated preferences and test backends. They do not change system levels, register shortcuts, or enable launch at login. They cover gesture intent and rejection rules; they are not a substitute for testing your physical trackpad.
+
+Runtime-verification regressions sign disposable copies of a system executable
+and check them using only macOS system tools. They reject missing Hardened
+Runtime, unsigned files, and missing, wrongly typed, or extra entitlements.
+No test copy is executed, and no installed executable is modified.
 
 Update regressions use mock HTTP responses with no network or browser launches.
 Signing tests use disposable keys to verify that altered feeds, archives, public
