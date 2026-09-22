@@ -1,5 +1,5 @@
-# Route security-sensitive changes to the maintainer. Main requires CI and a PR;
-# one-person maintenance does not pretend to provide an independent reviewer.
+# Route security-sensitive pull requests to the maintainer. Main permits
+# owner-only updates; CI runs on pushes and optional pull requests.
 /.github/ @0x1p0
 /scripts/ @0x1p0
 /Sway/Info.plist @0x1p0

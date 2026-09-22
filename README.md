@@ -39,7 +39,7 @@ To check the DMG, download its release's `SHA256SUMS.txt` into the same folder,
 open Terminal in that folder, and run (adjust the version for older releases):
 
 ```bash
-grep -F '  Sway-1.0.8-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
+grep -F '  Sway-1.0.9-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 Expect `OK`. A checksum confirms a match to the release files, not independent
@@ -196,7 +196,7 @@ in Sway; signature failures never fall back to unsigned updates. The installer
 starts only when requested, with automatic downloads and system profiling off.
 No second periodic updater runs alongside the daily metadata check.
 
-**Install 1.0.8 manually once from this repository.** Copies from the previous
+**Install 1.0.9 manually once from this repository.** Copies from the previous
 repository still point to its now-private update feed and cannot discover this
 release. Future signed releases from this repository can be installed directly. Keep Sway
 in Applications, not on its mounted DMG. Installation in a protected location
@@ -215,27 +215,31 @@ The fallback packages the executable, metadata, and app icon and verifies the lo
 ## Publish a release
 
 The repository began with the 1.0.7 source as one initial commit; old
-Git history and release notes are not included. Initial creation of main is
-allowed without an existing CI result. Once main exists, changes require
-**a pull request and a passing Sway checks result**.
-As a solo maintainer you can merge your own PR; this is a CI gate, not an
-independent second-person review. Do not push commits directly to main.
+Git history and release notes are not included. **Only the maintainer's account
+can update main**, including direct pushes. A PR is optional; Checks runs after
+every push to main and on PRs. Main still cannot be deleted or force-pushed.
+Release tests and manual signing approval remain mandatory.
 
-The Release workflow runs only when a new version tag such as **v1.0.8** is
-pushed. First merge the release changes into main, then create the tag on that
-merged commit:
+Pushing main runs **Checks**; pushing a new version tag runs **Release**.
+For the prepared 1.0.9 changes, run this chain from the project directory. It
+stops at the first failure, commits before tagging, and pushes main and the tag
+together so the release cannot accidentally target the previous commit:
 
 ```bash
-git switch main
-git pull --ff-only origin main
-git tag -a v1.0.8 -m "Sway 1.0.8"
-git push origin v1.0.8
+git switch main &&
+git pull --ff-only origin main &&
+git add .github/CODEOWNERS README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj releases/v1.0.9.md &&
+git commit -m "Prepare Sway 1.0.9 release" &&
+git tag -a v1.0.9 -m "Sway 1.0.9" &&
+git push --atomic origin main v1.0.9
 ```
 
-The v1.0.7 build failed before publication because a verification tool was
-missing on the runner. Its protected tag remains unchanged. Merge the 1.0.8
-fix through a passing PR, then use the new tag above; rerunning the old tag
-would still build the old code.
+The v1.0.7 build failed because a verification tool was missing. The v1.0.8
+tag was pushed before the fix merged and still points to 1.0.7 source, so its
+version check correctly stopped publication. Both tags stay unchanged; use
+the new v1.0.9 tag on the corrected source, not a rerun of either old tag.
+For later releases, update the app/project version and build number, add
+matching release notes, and use that new version consistently in this chain.
 
 Follow the run in [Actions](https://github.com/0x1p0/sway-application/actions):
 
@@ -270,7 +274,7 @@ signer accepts Sparkle's current 32-byte seed export format and verifies that
 it derives the app's public key before writing any signatures.
 
 Repository controls include secret scanning and push protection, dependency
-alerts/security updates, PR/CI protection on main, maintainer-only creation of
+alerts/security updates, owner-only main updates with history protection, maintainer-only creation of
 release tags, and blocked tag changes/deletions. Immutability applies to
 **published releases in this repository**. No old releases or Git history are
 copied here. The repository intentionally stays public so its download and
@@ -280,11 +284,11 @@ and billing settings.
 To build and verify the downloads locally without publishing:
 
 ```bash
-bash scripts/package-release.sh v1.0.8
+bash scripts/package-release.sh v1.0.9
 ```
 
 Packaging requires Python 3.10+, Xcode 26+, and access to the existing Keychain
-signing key. Artifacts appear under **build/releases/v1.0.8/**; existing outputs
+signing key. Artifacts appear under **build/releases/v1.0.9/**; existing outputs
 are never overwritten. For a build without signing-key access, set
 **SWAY_DEFER_UPDATE_SIGNING=1**. This produces local unsigned update artifacts,
 not a publishable signed feed.
