@@ -14,4 +14,4 @@ if [[ "$entitlements_json" != '{"com.apple.security.cs.disable-library-validatio
     printf 'Expected only the documented library-validation entitlement, with boolean true.\n' >&2
     exit 1
 fi
-printf 'Hardened Runtime verified; only the documented ad-hoc library-validation exception is present.\n'
+printf 'Hardened Runtime verified; only the documented cross-signer library-validation exception is present.\n'

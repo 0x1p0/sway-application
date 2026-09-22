@@ -34,6 +34,8 @@ jobs:
           bash scripts/test-brightness.sh
           bash scripts/test-controls.sh
           ruby Tests/runtime_verification_regressions.rb
+          python3 Tests/app_signing_regressions.py
+          python3 Tests/app_archive_regressions.py
           ruby Tests/release_policy_regressions.rb
       - name: Build and verify hardened app
         run: |

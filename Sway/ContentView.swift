@@ -614,6 +614,7 @@ struct ContentView: View {
                 Button("Check again") { controls.refresh(); if controls.hasAccess { monitor.restart() } }.buttonStyle(.bordered)
             }
             .controlSize(.regular)
+            AccessibilityRecoveryHelp()
         }
         .padding(14).background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
     }
@@ -970,6 +971,16 @@ struct UpdateWindowView: View {
 }
 
 /// First launch is a real, focused window, not a hidden menu-bar popover.
+private struct AccessibilityRecoveryHelp: View {
+    var body: some View {
+        DisclosureGroup("Already enabled, but gestures don’t work?") {
+            Text("Upgrading from 1.0.10 or earlier may need one final permission grant. In Accessibility, remove the old Sway entry with −, then use + to add Sway from Applications and enable it. Return here and choose Check again. If macOS still reports the old state, quit and reopen Sway once. Your other apps’ permissions stay untouched.")
+                .fixedSize(horizontal: false, vertical: true).padding(.top, 4)
+        }
+        .font(.system(size: 11)).foregroundStyle(.secondary)
+    }
+}
+
 struct GettingStartedView: View {
     @ObservedObject var settings: TrackpadSettings
     @StateObject private var controls: ControlCenterModel
@@ -1019,11 +1030,15 @@ struct GettingStartedView: View {
                 Text("Accessibility lets Sway recognize edge swipes and keep them from scrolling. Touch data stays on your Mac.")
                     .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 if !controls.hasAccess {
-                    Button("Open Accessibility Settings…") {
-                        guard !preview else { return }
-                        AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
-                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                    HStack {
+                        Button("Open Accessibility Settings…") {
+                            guard !preview else { return }
+                            AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                        }
+                        Button("Check again") { controls.refresh() }
                     }.buttonStyle(.bordered)
+                    AccessibilityRecoveryHelp()
                     Text("Use the sliders for now. This guide returns next time you open Sway until trackpad access is ready.")
                         .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }

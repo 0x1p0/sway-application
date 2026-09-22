@@ -12,7 +12,7 @@ Prefer a ZIP? Extract it and move `Sway.app` into Applications yourself.
 
 ### “Apple could not verify Sway”
 
-The release is **ad-hoc signed, not Developer ID signed or notarized**. That
+The release is **self-signed with a persistent Sway identity, not Developer ID signed or notarized**. That
 warning is expected for this distribution; a nicer installer does not remove it.
 Only proceed if you trust the download. The preferred option is to try opening
 the installed app, then choose **System Settings → Privacy & Security → Open
@@ -39,7 +39,7 @@ To check the DMG, download its release's `SHA256SUMS.txt` into the same folder,
 open Terminal in that folder, and run (adjust the version for older releases):
 
 ```bash
-grep -F '  Sway-1.0.10-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
+grep -F '  Sway-1.0.11-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 Expect `OK`. A checksum confirms a match to the release files, not independent
@@ -206,8 +206,30 @@ repository still point to its now-private update feed and cannot discover this
 release. Future signed releases from this repository can be installed directly. Keep Sway
 in Applications, not on its mounted DMG. Installation in a protected location
 may require macOS authorization. Update signing is separate from Developer ID
-signing/notarization: the first-install warning remains, and macOS may require
-Accessibility access to be re-enabled after replacing an ad-hoc signed app.
+signing/notarization: the first-install warning remains.
+
+### Keeping Accessibility permission across updates
+
+Starting with **1.0.11**, releases use the same certificate-bound app identity
+and bundle identifier. Earlier ad-hoc signatures identified each build by its
+code hash, so macOS could not reliably carry permission across updates. The
+new identity removes that cause; it does not override permission revocation,
+administrator policy, or OS changes. See [Apple's code-identity explanation](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements).
+
+**Upgrading from 1.0.10 or earlier may require one final grant.** If Sway is
+enabled in Accessibility but gestures do not work, remove only its old entry,
+then use **+** to add `/Applications/Sway.app` and enable it. Return to Sway and
+choose **Check again**. Quit and reopen once if macOS still reports the old
+state. This help is also available in the setup guide and permission card.
+Sway never resets TCC or changes another app's permissions automatically.
+Users do not need to install or trust a certificate.
+
+Tests verify that two different universal binaries satisfy the same identity
+requirement after their temporary signing keychains are removed. These tests
+do **not** grant Accessibility or prove end-to-end retention on every macOS
+version. Validate that separately using two installed releases at the same
+path, allowing access on the first and checking gestures after the second.
+Do not replace a release with an ad-hoc development build during that test.
 
 If the installed Xcode build service is unavailable, an explicit compiler fallback uses the same selected SDK:
 
@@ -226,17 +248,17 @@ every push to main and on PRs. Main still cannot be deleted or force-pushed.
 Release tests and manual signing approval remain mandatory.
 
 Pushing main runs **Checks**; pushing a new version tag runs **Release**.
-For the prepared 1.0.10 changes, run this chain from the project directory. It
+For the prepared 1.0.11 changes, run this chain from the project directory. It
 stops at the first failure, commits before tagging, and pushes main and the tag
 together so the release cannot accidentally target the previous commit:
 
 ```bash
 git switch main &&
 git pull --ff-only origin main &&
-git add README.md Sway/AppDelegate.swift Sway/AppPresentation.swift Sway/ContentView.swift Sway/Info.plist Sway.xcodeproj/project.pbxproj Tests/RenderUI.swift Tests/presentation_regressions.swift releases/v1.0.10.md &&
-git commit -m "Fix menu sizing and Dock window behavior" &&
-git tag -a v1.0.10 -m "Sway 1.0.10" &&
-git push --atomic origin main v1.0.10
+git add .github/ .gitignore README.md Sway/ContentView.swift Sway/Info.plist Sway/Sway.entitlements Sway.xcodeproj/project.pbxproj Tests/app_signing_regressions.py Tests/app_archive_regressions.py Tests/release_policy_regressions.rb scripts/app-signing.py scripts/safe-app-archive.py scripts/verify-release-downloads.py scripts/signing/ scripts/package-release.sh scripts/test-updater-bundle.sh scripts/verify-runtime.sh releases/INSTALL.txt releases/v1.0.11.md &&
+git commit -m "Use a persistent signing identity for Sway updates" &&
+git tag -a v1.0.11 -m "Sway 1.0.11" &&
+git push --atomic origin main v1.0.11
 ```
 
 The v1.0.7 build failed because a verification tool was missing. The v1.0.8
@@ -248,29 +270,36 @@ matching release notes, and use that new version consistently in this chain.
 
 Follow the run in [Actions](https://github.com/0x1p0/sway-application/actions):
 
-1. The **build job** has a read-only repository token, no release environment,
-   and no signing secrets. It runs regressions, builds the hardened universal
-   app, verifies ZIP and mounted DMG contents, and checks updater startup.
-2. The **release job** waits for your approval in the protected **release**
-   environment. Use **Review deployments → release → Approve and deploy**
-   after checking the source commit and build results. Self-approval is allowed
-   because this repository has one maintainer; administrator bypass is disabled.
-3. A fresh runner reads signing tools from protected main and requires that
-   main still equals the release commit. If main advanced while waiting, it
-   fails closed: prepare a new version/tag rather than moving an existing tag.
-   It downloads only that build's exact artifact ID into a separate data folder.
-4. Apple's CryptoKit signs the opaque ZIP and feed with the existing Ed25519
-   key. The signer never unpacks or executes the app, invokes build tools, or
-   installs packages. A separate verifier checks both signatures and versions.
-5. Publication starts as a draft and becomes an immutable release only after
-   the ZIP, DMG, signed appcast, and checksums are uploaded.
+1. **Build** runs regressions and produces the universal app without secrets.
+2. **Approve persistent app signing** waits for release-environment approval.
+   A fresh runner validates archive paths, signs the app without executing it,
+   removes its temporary keychain, and seals the signed ZIP with a SHA-256 digest.
+3. **Package signed app without keys** creates the DMG on another runner.
+   Packaging dependencies receive neither private key and cannot change the
+   signer-produced ZIP that will be published.
+4. **Approve, sign updates, and publish** waits for a **second approval**. Before
+   accessing the update key, a fresh runner checks the ZIP against the app
+   signer's digest and compares the complete DMG app with that ZIP. Apple's
+   CryptoKit then signs the opaque ZIP and feed; a separate verifier checks
+   signatures and versions. Publication begins as a draft and becomes immutable
+   only after all four download files are uploaded.
 
-The **SPARKLE_PRIVATE_KEY** secret exists only in this repository's approval-protected
-**release environment**, not at repository scope. Only the signing step receives
-the key. Environment
+For both approvals use **Review deployments → release → Approve and deploy**
+after reviewing the source and preceding jobs. Self-approval is allowed for
+this single-maintainer repository; administrator bypass remains disabled.
+Signing and packaging tools come from protected main, which must still equal
+the tag's commit. If main advances while waiting, prepare a new version/tag
+instead of moving an existing tag. Artifacts are selected by exact workflow
+artifact IDs, never by a loosely matched name.
+
+**SWAY_APP_SIGNING_IDENTITY** and **SPARKLE_PRIVATE_KEY** exist only in the
+approval-protected **release environment**, not at repository scope. Each is
+provided only to its own signing step, on separate runners. Environment
 approval, protected source, fresh runners, and pinned actions reduce risk;
 they do not make a compromised maintainer account or malicious approved source
-safe.
+safe. The public app certificate and backup/migration details are documented
+in [scripts/signing/README.md](scripts/signing/README.md). Do not casually
+replace this certificate; permission continuity depends on keeping it stable.
 
 The existing key also remains in the login Keychain under account
 **sway-app-0x1p0**. Only the public key is committed. Keep a secure backup;
@@ -289,19 +318,19 @@ and billing settings.
 To build and verify the downloads locally without publishing:
 
 ```bash
-bash scripts/package-release.sh v1.0.10
+bash scripts/package-release.sh v1.0.11
 ```
 
-Packaging requires Python 3.10+, Xcode 26+, and access to the existing Keychain
-signing key. Artifacts appear under **build/releases/v1.0.10/**; existing outputs
-are never overwritten. For a build without signing-key access, set
-**SWAY_DEFER_UPDATE_SIGNING=1**. This produces local unsigned update artifacts,
-not a publishable signed feed.
+Packaging requires Python 3.10+, Xcode 26+, and access to both Keychain signing
+identities. Artifacts appear under **build/releases/v1.0.11/**; existing outputs
+are never overwritten. **SWAY_DEFER_UPDATE_SIGNING=1** skips the update-feed
+signature only; it still requires the persistent app identity. For key-free
+development builds use `bash scripts/build.sh`, not release packaging.
 
 Sparkle 2.10.0 and its binary checksum are pinned through the Xcode package
 lockfile. DMG dependencies are pinned with SHA-256 hashes and installed as
 verified wheels in build/DmgTools. These dependencies run only in the
-unprivileged build job, never the signing job. Dependabot checks GitHub Actions
+unprivileged packaging job, never either signing job. Dependabot checks GitHub Actions
 and DMG dependencies weekly; Sparkle's Xcode package pin and advisories still
 need review when preparing releases.
 
@@ -312,12 +341,12 @@ without opening Finder or launching Sway.
 ### macOS signing limitations
 
 Packaged Sway now enables **Hardened Runtime** and verifies its signature
-settings. Ad-hoc distribution needs one exception:
+settings. Self-signed distribution needs one exception:
 **com.apple.security.cs.disable-library-validation**, so Sparkle can load
 without a shared Developer ID team identity. No debugger, JIT, unsigned
 executable-memory, or Apple Events exception is granted.
 
-The app remains **ad-hoc signed and unnotarized**. This does not remove the
+The app remains **self-signed and unnotarized**. This does not remove the
 initial Gatekeeper warning, provide Apple-verified publisher identity, or
 sandbox the app's Accessibility access. Full distribution signing requires a
 Developer ID Application certificate and notarization credentials; an Apple
@@ -340,6 +369,8 @@ bash scripts/test-audio.sh
 bash scripts/test-brightness.sh
 bash scripts/test-controls.sh
 ruby Tests/runtime_verification_regressions.rb
+python3 Tests/app_signing_regressions.py
+python3 Tests/app_archive_regressions.py
 ruby Tests/release_policy_regressions.rb
 ```
 

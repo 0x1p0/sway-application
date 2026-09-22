@@ -25,8 +25,20 @@ if [[ ! -s "releases/v$version.md" ]]; then
     printf 'Missing release notes for v%s.\n' "$version" >&2
     exit 2
 fi
-SWAY_ARCH=universal bash scripts/build.sh
-bundle="$project_directory/build/Sway.app"
+if [[ -n "${2:-}" ]]; then
+    # CI packages the exact ZIP from the isolated app signer. Never rebuild or
+    # re-sign it on a runner that installs packaging dependencies.
+    signed_archive="$2"
+    extraction="$(mktemp -d "$project_directory/build/SignedPackage.XXXXXX")"
+    python3 scripts/safe-app-archive.py "$signed_archive" "$extraction/extracted"
+    bundle="$extraction/extracted/Sway.app"
+else
+    SWAY_ARCH=universal bash scripts/build.sh
+    bundle="$project_directory/build/Sway.app"
+    python3 scripts/app-signing.py sign "$bundle"
+    signed_archive=""
+fi
+python3 scripts/app-signing.py verify "$bundle"
 executable="$bundle/Contents/MacOS/Sway"
 plist_tool=/usr/libexec/PlistBuddy
 [[ "$("$plist_tool" -c 'Print :CFBundleShortVersionString' "$bundle/Contents/Info.plist")" == "$version" ]]
@@ -38,14 +50,20 @@ plutil -lint "$bundle/Contents/Info.plist"
 staging="$(mktemp -d "$project_directory/build/ReleasePackage.XXXXXX")"
 mkdir -p "$staging/artifacts" "$staging/verify" "$project_directory/build/releases"
 archive="Sway-$version-macos-universal.zip"
-ditto -c -k --keepParent --norsrc --noextattr "$bundle" "$staging/artifacts/$archive"
+if [[ -n "$signed_archive" ]]; then
+    cp "$signed_archive" "$staging/artifacts/$archive"
+else
+    ditto -c -k --keepParent --norsrc --noextattr "$bundle" "$staging/artifacts/$archive"
+fi
 ditto -x -k "$staging/artifacts/$archive" "$staging/verify"
 codesign --verify --deep --strict "$staging/verify/Sway.app"
+python3 scripts/app-signing.py verify "$staging/verify/Sway.app"
 verify_universal "$staging/verify/Sway.app/Contents/MacOS/Sway"
 cmp "$executable" "$staging/verify/Sway.app/Contents/MacOS/Sway"
 
 disk_image="Sway-$version-macos-universal.dmg"
 bash scripts/create-dmg.sh "$bundle" "$staging/artifacts/$disk_image"
+bash scripts/test-updater-bundle.sh "$bundle"
 
 (
     cd "$staging/artifacts"
@@ -59,4 +77,4 @@ if [[ "${SWAY_DEFER_UPDATE_SIGNING:-0}" != "1" ]]; then
 fi
 mv "$staging/artifacts" "$release_directory"
 printf '\nVerified release artifacts: %s\n' "$release_directory"
-printf 'Signing: ad-hoc; not notarized. No release has been published by this script.\n'
+printf 'Signing: persistent self-signed Sway identity; not notarized. No release has been published by this script.\n'

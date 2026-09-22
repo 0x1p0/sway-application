@@ -11,3 +11,5 @@ xcuserdata/
 *.mobileprovision
 *.pfx
 *.pem
+__pycache__/
+*.py[cod]

@@ -8,7 +8,8 @@ Welcome to Sway
 
 Sway lives in the menu bar. If its icon is hidden or your menu bar is crowded,
 reopen Sway from Spotlight or Applications to bring up controls. You can also
-enable "Show Sway in Dock" in setup or Settings > General.
+enable "Show in Dock while windows are open" in setup or Settings > General.
+Closing the last window hides its running Dock icon; the menu bar stays available.
 
 Closing the setup guide does not complete setup. It returns on the next launch
 or reopen while trackpad permission is missing. After granting access, choose
@@ -17,19 +18,30 @@ or reopen while trackpad permission is missing. After granting access, choose
 Sway checks GitHub daily for updates; turn this off in Settings > Software
 updates if you prefer. Checks need no sign-in. When a newer signed release is
 available, choose Install update to download, verify, install, and restart.
-Nothing downloads or installs silently. Install 1.0.6 manually once to get this
-feature; subsequent signed releases can be installed directly from Sway.
-Update signing does not remove the first-launch warning below. macOS may ask
-you to re-enable Accessibility after replacing an ad-hoc signed app.
+Nothing downloads or installs silently. Copies from the previous private
+repository need a manual installation once to reach the current update feed.
+Update signing does not remove the first-launch warning below.
+
+ACCESSIBILITY AFTER UPDATING
+
+From 1.0.11 onward, releases share a persistent app-signing identity rather
+than an ad-hoc signature that changes with each build. Keep Sway in Applications.
+Upgrading from 1.0.10 or earlier may need one final permission grant: if Sway
+looks enabled but gestures do not work, remove its old Accessibility entry,
+then use + to add Sway from Applications and enable it. Return to Sway and
+choose Check again. Quit and reopen once if macOS still reports the old state.
+Later releases keep the same identity, but cannot override revoked permissions
+or administrator/OS policies. Never install or trust a certificate for Sway,
+reset other apps' permissions, or disable system security to use this feature.
 
 Requires macOS 13 or later. The app supports Apple Silicon and Intel Macs.
 Try Settings > Palm protection > Test gestures safely before using edge gestures.
 
 FIRST LAUNCH
 
-This build is ad-hoc signed, not Developer ID signed or notarized. macOS may
+This build is self-signed, not Developer ID signed or notarized. macOS may
 still show a warning even though Hardened Runtime is enabled. One library-
-validation exception is necessary for Sparkle in this ad-hoc build. macOS may
+validation exception is necessary for Sparkle in this self-signed build. macOS may
 say Apple could not verify Sway. The preferred option, only for a download
 you trust: try opening the installed app, then go to System Settings >
 Privacy & Security > Open Anyway and confirm. Managed Macs may prevent this.

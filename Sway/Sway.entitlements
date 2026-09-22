@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Ad-hoc distribution cannot use team-based library validation for
+    <!-- Self-signed distribution cannot use team-based library validation for
          Sparkle. Keep the other Hardened Runtime protections enabled. Remove
          this exception when migrating to consistent Developer ID signing. -->
     <key>com.apple.security.cs.disable-library-validation</key>

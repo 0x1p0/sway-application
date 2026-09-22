@@ -45,24 +45,112 @@ jobs:
           bash scripts/test-brightness.sh
           bash scripts/test-controls.sh
           ruby Tests/runtime_verification_regressions.rb
+          python3 Tests/app_signing_regressions.py
+          python3 Tests/app_archive_regressions.py
           ruby Tests/release_policy_regressions.rb
-      - name: Build and verify hardened universal ZIP and DMG
+      - name: Build and verify without private identities
         run: |
-          SWAY_DEFER_UPDATE_SIGNING=1 bash scripts/package-release.sh "$GITHUB_REF_NAME"
+          SWAY_ARCH=universal bash scripts/build.sh
           bash scripts/test-updater-bundle.sh
+          ditto -c -k --keepParent --norsrc --noextattr build/Sway.app "$RUNNER_TEMP/Sway-unsigned.zip"
       - name: Hand off data, never signing tools
         id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: unsigned-release-${{ github.sha }}
+          path: ${{ runner.temp }}/Sway-unsigned.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  sign-app:
+    name: Approve persistent app signing
+    needs: build
+    runs-on: macos-26
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      zip-sha256: ${{ steps.digest.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Require approved source
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: ${{ runner.temp }}/sway-unsigned
+          merge-multiple: true
+          digest-mismatch: error
+      - name: Extract bounded data before accessing the identity
+        run: |
+          python3 scripts/safe-app-archive.py "$RUNNER_TEMP/sway-unsigned/Sway-unsigned.zip" "$RUNNER_TEMP/sway-app"
+          codesign --verify --deep --strict "$RUNNER_TEMP/sway-app/Sway.app"
+          bash scripts/verify-runtime.sh "$RUNNER_TEMP/sway-app/Sway.app"
+      - name: Sign without executing the app or installing dependencies
+        env:
+          SWAY_APP_SIGNING_IDENTITY: ${{ secrets.SWAY_APP_SIGNING_IDENTITY }}
+        run: python3 scripts/app-signing.py sign "$RUNNER_TEMP/sway-app/Sway.app"
+      - name: Verify and seal the signed app after keychain cleanup
+        id: digest
+        run: |
+          python3 scripts/app-signing.py verify "$RUNNER_TEMP/sway-app/Sway.app"
+          ditto -c -k --keepParent --norsrc --noextattr "$RUNNER_TEMP/sway-app/Sway.app" "$RUNNER_TEMP/Sway-signed.zip"
+          printf 'sha256=%s\n' "$(shasum -a 256 "$RUNNER_TEMP/Sway-signed.zip" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: signed-app-${{ github.sha }}
+          path: ${{ runner.temp }}/Sway-signed.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  package:
+    name: Package signed app without keys
+    needs: sign-app
+    runs-on: macos-26
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Require approved source
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.sign-app.outputs.artifact-id }}
+          path: ${{ runner.temp }}/sway-signed
+          merge-multiple: true
+          digest-mismatch: error
+      - name: Package the exact signed ZIP
+        env:
+          SIGNED_ZIP_SHA256: ${{ needs.sign-app.outputs.zip-sha256 }}
+        run: |
+          test "$(shasum -a 256 "$RUNNER_TEMP/sway-signed/Sway-signed.zip" | cut -d ' ' -f 1)" = "$SIGNED_ZIP_SHA256"
+          SWAY_DEFER_UPDATE_SIGNING=1 bash scripts/package-release.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/sway-signed/Sway-signed.zip"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: upload
+        with:
+          name: packaged-release-${{ github.sha }}
           path: build/releases/${{ github.ref_name }}/*
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
 
   release:
-    name: Approve, sign, and publish
-    needs: build
+    name: Approve, sign updates, and publish
+    needs: [sign-app, package]
     runs-on: macos-26
     timeout-minutes: 15
     environment:
@@ -92,10 +180,14 @@ jobs:
       - name: Download only this build's artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          artifact-ids: ${{ needs.package.outputs.artifact-id }}
           path: ${{ runner.temp }}/sway-release
           merge-multiple: true
           digest-mismatch: error
+      - name: Verify packager did not change the app before accessing the update key
+        env:
+          SIGNED_ZIP_SHA256: ${{ needs.sign-app.outputs.zip-sha256 }}
+        run: python3 scripts/verify-release-downloads.py "$RUNNER_TEMP/sway-release" "$SIGNED_ZIP_SHA256"
       - name: Sign opaque archives after approval
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
