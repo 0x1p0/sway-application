@@ -1,0 +1,8 @@
+# Route security-sensitive changes to the maintainer. Main requires CI and a PR;
+# one-person maintenance does not pretend to provide an independent reviewer.
+/.github/ @0x1p0
+/scripts/ @0x1p0
+/Sway/Info.plist @0x1p0
+/Sway/Sway.entitlements @0x1p0
+/Sway/InAppUpdater.swift @0x1p0
+/Sway.xcodeproj/ @0x1p0

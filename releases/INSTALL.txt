@@ -1,0 +1,53 @@
+Welcome to Sway
+
+1. Quit any older copy of Sway.
+2. Drag Sway.app onto the Applications shortcut.
+3. Eject this disk image and open Sway from Applications.
+4. Follow the first-launch guide. Allow Accessibility in System Settings for
+   trackpad gestures, or continue with sliders without granting access.
+
+Sway lives in the menu bar. If its icon is hidden or your menu bar is crowded,
+reopen Sway from Spotlight or Applications to bring up controls. You can also
+enable "Show Sway in Dock" in setup or Settings > General.
+
+Closing the setup guide does not complete setup. It returns on the next launch
+or reopen while trackpad permission is missing. After granting access, choose
+"Get started". Revisit it anytime in Settings > About & help > Open guide.
+
+Sway checks GitHub daily for updates; turn this off in Settings > Software
+updates if you prefer. Checks need no sign-in. When a newer signed release is
+available, choose Install update to download, verify, install, and restart.
+Nothing downloads or installs silently. Install 1.0.6 manually once to get this
+feature; subsequent signed releases can be installed directly from Sway.
+Update signing does not remove the first-launch warning below. macOS may ask
+you to re-enable Accessibility after replacing an ad-hoc signed app.
+
+Requires macOS 13 or later. The app supports Apple Silicon and Intel Macs.
+Try Settings > Palm protection > Test gestures safely before using edge gestures.
+
+FIRST LAUNCH
+
+This build is ad-hoc signed, not Developer ID signed or notarized. macOS may
+still show a warning even though Hardened Runtime is enabled. One library-
+validation exception is necessary for Sparkle in this ad-hoc build. macOS may
+say Apple could not verify Sway. The preferred option, only for a download
+you trust: try opening the installed app, then go to System Settings >
+Privacy & Security > Open Anyway and confirm. Managed Macs may prevent this.
+
+TERMINAL ALTERNATIVE — TRUSTED COPIES ONLY
+
+After dragging Sway to Applications, quit Sway, open Terminal, and run:
+
+xattr -dr com.apple.quarantine "/Applications/Sway.app"
+
+Then open Sway from Applications again. This removes the quarantine marker
+only from that app and its contents, bypassing the quarantine-based
+first-launch check. It does NOT scan for malware, notarize the app, or prove
+the download is safe. Use it only if you trust the source and have checked
+the release checksum. Never run it against all of Applications or Downloads.
+Do not disable Gatekeeper globally. If access is denied, use Open Anyway or
+contact your Mac's administrator; do not work around a managed-Mac policy.
+"No such xattr" means the specified item had no quarantine marker to remove.
+
+Downloads and checksum instructions:
+https://github.com/0x1p0/sway-application/releases

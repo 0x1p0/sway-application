@@ -1,0 +1,40 @@
+name: Checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Sway checks
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test without release secrets
+        run: |
+          bash scripts/test-gestures.sh
+          bash scripts/test-settings.sh
+          bash scripts/test-haptics.sh
+          bash scripts/test-updates.sh
+          bash scripts/test-update-signing.sh
+          bash scripts/test-presentation.sh
+          bash scripts/test-audio.sh
+          bash scripts/test-brightness.sh
+          bash scripts/test-controls.sh
+          ruby Tests/release_policy_regressions.rb
+      - name: Build and verify hardened app
+        run: |
+          bash scripts/build.sh
+          bash scripts/test-updater-bundle.sh
