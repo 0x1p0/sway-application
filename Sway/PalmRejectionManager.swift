@@ -353,27 +353,97 @@ struct RelativeGestureValue {
 /// Ownership belongs to an entire precise-scroll sequence, including inertia.
 /// Mouse wheels and a new unrelated gesture never inherit old ownership.
 struct GestureScrollCapture {
-    private var captured = false
-    private var momentumUntil = 0.0
+    enum Phase { case none, mayBegin, began, changed, stationary, ended, cancelled }
+    private enum Owner { case system, sway }
+    private var directOwner: Owner?
+    private var momentumOwner: Owner?
+    private var pendingMomentumOwner: Owner?
+    private var momentumStartDeadline = 0.0
+    private var touchesHaveEnded = false
 
-    mutating func consume(precise: Bool, momentum: Bool, began: Bool, ended: Bool,
+    var blocksEdgeGesture: Bool { directOwner == .system && !touchesHaveEnded }
+
+    mutating func touchesEnded() {
+        // Native lift may precede the scroll-ended event. Keep the latter's
+        // owner, but do not let it reject the next physical touch sequence.
+        touchesHaveEnded = true
+    }
+
+    // The event tap calls this before draining queued touch frames at a new
+    // scroll boundary, so an old system scroll cannot reject a fresh edge touch.
+    mutating func prepare(phase: Phase, momentum: Phase) {
+        if momentum == .none && (phase == .mayBegin || phase == .began) {
+            self = GestureScrollCapture()
+        }
+    }
+
+    mutating func consume(precise: Bool, phase: Phase, momentum: Phase = .none,
                           eligible: Bool, at time: Double) -> Bool {
-        guard precise else { return false }
-        if momentum {
-            let result = captured || time < momentumUntil
-            if ended { captured = false; momentumUntil = 0 }
-            return result
+        guard precise, time.isFinite else { return false }
+        prepare(phase: phase, momentum: momentum)
+        if momentum != .none {
+            // Some sources combine direct end with momentum begin in one event.
+            if phase == .ended { _ = endDirect(at: time, cancelled: false) }
+            // A delayed tail from an older gesture cannot change the owner of
+            // a newer, still-touching scroll. Never acquire inertia from current
+            // touch eligibility: it must belong to a sequence we already saw.
+            guard directOwner == nil else { return false }
+            if momentum == .began || momentumOwner == nil {
+                momentumOwner = time <= momentumStartDeadline ? (pendingMomentumOwner ?? .system) : .system
+                pendingMomentumOwner = nil
+            }
+            let consume = momentumOwner == .sway
+            if momentum == .ended || momentum == .cancelled {
+                momentumOwner = nil
+                pendingMomentumOwner = nil
+                momentumStartDeadline = 0
+            }
+            // The deadline limits only the handoff, NOT the inertia's duration.
+            // Once owned, a long deceleration remains owned through its end.
+            return consume
         }
-        if began { captured = false; momentumUntil = 0 }
-        if ended {
-            let result = captured
-            if result { momentumUntil = time + 1 }
-            captured = false
-            return result
+        switch phase {
+        case .none:
+            // Precise does not necessarily mean trackpad: phase-less wheels
+            // and synthetic scrolling must not inherit trackpad ownership.
+            return false
+        case .mayBegin:
+            // This is a preflight, not the actual scroll start.
+            // Let apps see it (including their normal stop-inertia behavior).
+            return false
+        case .began:
+            directOwner = eligible ? .sway : .system
+            return directOwner == .sway
+        case .changed, .stationary:
+            // Missing/late begin: favor uninterrupted scrolling. In particular,
+            // NEVER steal a system scroll once its first movement was delivered.
+            if directOwner == nil {
+                directOwner = .system
+                touchesHaveEnded = false
+                momentumOwner = nil
+                pendingMomentumOwner = nil
+            }
+            return directOwner == .sway
+        case .ended:
+            return endDirect(at: time, cancelled: false)
+        case .cancelled:
+            return endDirect(at: time, cancelled: true)
         }
-        if eligible { captured = true }
-        if captured { momentumUntil = time + 1 }
-        return captured
+    }
+
+    private mutating func endDirect(at time: Double, cancelled: Bool) -> Bool {
+        let consume = directOwner == .sway
+        if cancelled {
+            pendingMomentumOwner = nil
+            momentumStartDeadline = 0
+            momentumOwner = nil
+        } else if let directOwner {
+            pendingMomentumOwner = directOwner
+            momentumStartDeadline = time + 1
+            momentumOwner = nil
+        }
+        directOwner = nil
+        return consume
     }
 }
 

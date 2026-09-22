@@ -164,6 +164,7 @@ final class TrackpadMonitor: ObservableObject {
         guard settings.isEnabled else { stop(); return }
         defer { updateWatchdog() }
         lastFrameTime = timestamp
+        if contacts.isEmpty { scrollCapture.touchesEnded() }
         // A stalled main thread must never replay queued gestures onto hardware.
         if ProcessInfo.processInfo.systemUptime - timestamp > 0.12 {
             if !contacts.isEmpty {
@@ -176,6 +177,9 @@ final class TrackpadMonitor: ObservableObject {
             return
         }
         var decision = recognizer.process(contacts: contacts, timestamp: timestamp, configuration: configuration)
+        if configuration.requiredFingers == 2, scrollCapture.blocksEdgeGesture, recognizer.isCapturing {
+            decision = recognizer.cancel(reason: "Normal scrolling started first. Lift your fingers before using an edge control.")
+        }
         if ExcludedAppsManager.shared.activeAppIsExcluded && !contacts.isEmpty {
             decision = recognizer.cancel(reason: "Sway is paused in this app.")
         }
@@ -451,6 +455,7 @@ final class TrackpadMonitor: ObservableObject {
         guard isRunning else { return pass }
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             cancelCurrentGesture(reason: "Input monitoring was interrupted. Lift your fingers to reset.")
+            scrollCapture = GestureScrollCapture()
             if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
             return pass
         }
@@ -474,15 +479,35 @@ final class TrackpadMonitor: ObservableObject {
         }
         guard type == .scrollWheel else { return pass }
         guard let scrolling = NSEvent(cgEvent: event), scrolling.hasPreciseScrollingDeltas else { return pass }
+        let phase = scrollPhase(scrolling.phase)
+        let momentum = scrollPhase(scrolling.momentumPhase)
+        scrollCapture.prepare(phase: phase, momentum: momentum)
+        // Native touch callbacks and the event tap arrive via separate queues.
+        // Apply all already-received touches/lifts before deciding who owns the
+        // beginning of this scroll; do not use the preceding gesture's contacts.
+        if momentum == .none && (phase == .mayBegin || phase == .began) {
+            drainFrames()
+        }
+        let observedAt = ProcessInfo.processInfo.systemUptime
         let eligible = settings.isEnabled && settings.minimumFingers == 2 && recognizer.isCapturing &&
-            recognizer.decision.count == 2 && now - lastFrameTime < 0.15 &&
+            recognizer.decision.count == 2 && observedAt - lastFrameTime < 0.12 &&
             !ExcludedAppsManager.shared.activeAppIsExcluded
-        let momentum = !scrolling.momentumPhase.isEmpty
-        let phase = momentum ? scrolling.momentumPhase : scrolling.phase
-        let consume = scrollCapture.consume(precise: true, momentum: momentum,
-            began: phase.contains(.began), ended: phase.contains(.ended) || phase.contains(.cancelled),
-            eligible: eligible, at: now)
+        let consume = scrollCapture.consume(precise: true, phase: phase, momentum: momentum,
+                                            eligible: eligible, at: observedAt)
+        if scrollCapture.blocksEdgeGesture && settings.minimumFingers == 2 && recognizer.isCapturing {
+            cancelCurrentGesture(reason: "Normal scrolling started first. Lift your fingers before using an edge control.")
+        }
         return consume ? nil : pass
+    }
+
+    private func scrollPhase(_ phase: NSEvent.Phase) -> GestureScrollCapture.Phase {
+        if phase.contains(.cancelled) { return .cancelled }
+        if phase.contains(.ended) { return .ended }
+        if phase.contains(.began) { return .began }
+        if phase.contains(.mayBegin) { return .mayBegin }
+        if phase.contains(.changed) { return .changed }
+        if phase.contains(.stationary) { return .stationary }
+        return .none
     }
 }
 

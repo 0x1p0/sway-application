@@ -39,7 +39,7 @@ To check the DMG, download its release's `SHA256SUMS.txt` into the same folder,
 open Terminal in that folder, and run (adjust the version for older releases):
 
 ```bash
-grep -F '  Sway-1.0.13-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
+grep -F '  Sway-1.0.14-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 Expect `OK`. A checksum confirms a match to the release files, not independent
@@ -76,6 +76,15 @@ or **Getting Started…** in the three-dot menu at any time.
 4. Read the result: Sway shows the rule that accepted or stopped the gesture, the contact count, travel, straightness, and duration. Stop the test before using gestures to adjust your Mac.
 
 By default, the left edge controls brightness and the right edge controls volume. Up increases the level; down decreases it. Every finger must start in the same enabled edge zone. Lift all fingers between attempts, especially after a rejected touch.
+
+In two-finger mode, a normal scroll that has already started stays a normal
+scroll until you lift. Sway does not take it over when delayed touch evidence
+arrives or when you move toward an edge. Edge-control scroll suppression keeps
+the complete inertia tail together instead of letting it scroll the page after
+a fixed timeout. New scroll gestures clear previous ownership; mouse wheels
+and phase-less precise input remain unaffected. The event tap drains pending
+touch frames before choosing ownership at the actual scroll start, using
+[macOS's scroll phases](https://developer.apple.com/documentation/appkit/nsevent/phase-swift.property).
 
 ## A small menu, a separate settings window
 
@@ -248,17 +257,17 @@ every push to main and on PRs. Main still cannot be deleted or force-pushed.
 Release tests and manual signing approval remain mandatory.
 
 Pushing main runs **Checks**; pushing a new version tag runs **Release**.
-For the prepared 1.0.13 changes, run this chain from the project directory. It
+For the prepared 1.0.14 changes, run this chain from the project directory. It
 stops at the first failure, commits before tagging, and pushes main and the tag
 together so the release cannot accidentally target the previous commit:
 
 ```bash
 git switch main &&
 git pull --ff-only origin main &&
-git add .github/CODEOWNERS .github/workflows/checks.yml .github/workflows/release.yml README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj Tests/package_release_regressions.py Tests/release_policy_regressions.rb scripts/package-release.sh releases/INSTALL.txt releases/v1.0.13.md &&
-git commit -m "Fix release packaging on clean runners" &&
-git tag -a v1.0.13 -m "Sway 1.0.13" &&
-git push --atomic origin main v1.0.13
+git add README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj Sway/PalmRejectionManager.swift Sway/TrackpadMonitor.swift Tests/gesture_regressions.swift releases/v1.0.14.md &&
+git commit -m "Fix two-finger scrolling and gesture ownership" &&
+git tag -a v1.0.14 -m "Sway 1.0.14" &&
+git push --atomic origin main v1.0.14
 ```
 
 The v1.0.7 build failed because a verification tool was missing. The v1.0.8
@@ -328,11 +337,11 @@ and billing settings.
 To build and verify the downloads locally without publishing:
 
 ```bash
-bash scripts/package-release.sh v1.0.13
+bash scripts/package-release.sh v1.0.14
 ```
 
 Packaging requires Python 3.10+, Xcode 26+, and access to both Keychain signing
-identities. Artifacts appear under **build/releases/v1.0.13/**; existing outputs
+identities. Artifacts appear under **build/releases/v1.0.14/**; existing outputs
 are never overwritten. **SWAY_DEFER_UPDATE_SIGNING=1** skips the update-feed
 signature only; it still requires the persistent app identity. For key-free
 development builds use `bash scripts/build.sh`, not release packaging.
@@ -449,6 +458,7 @@ When checking the running app, verify the following with the physical hardware:
 4. Pause and resume, try a timed pause, and confirm an excluded app passes gestures through.
 5. Change the audio output, connect a display, and check that unsupported controls show an honest unavailable state.
 6. Check the compact menu and settings categories in both themes, scroll longer settings pages, and use keyboard navigation. Try Reduce Transparency and Reduce Motion in macOS Accessibility settings.
+7. With two-finger gestures enabled, scroll normally in the center, continue toward an edge, then lift and make a deliberate edge swipe. The normal scroll must not freeze or adjust a level. Flick an edge control and wait for inertia to finish; the page must not jump afterward. Quickly alternate center scrolling and edge swipes, and confirm a mouse wheel still scrolls normally.
 
 ## Source layout
 
