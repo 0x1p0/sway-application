@@ -151,14 +151,16 @@ struct MonochromePrimaryButtonStyle: ButtonStyle {
 
 /// Accept controls on the first click before an accessory app becomes active.
 final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
-    var sizeDidChange: ((NSSize) -> Void)?
+    var sizeDidChange: (() -> Void)?
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func invalidateIntrinsicContentSize() {
+        super.invalidateIntrinsicContentSize()
+        // SwiftUI can change its ideal size without another NSView.layout().
+        sizeDidChange?()
+    }
     override func layout() {
         super.layout()
-        let size = fittingSize
-        if size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0 {
-            sizeDidChange?(size)
-        }
+        sizeDidChange?()
     }
 }
 
@@ -166,6 +168,8 @@ final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
 /// overriding loadView does not reliably replace that view. Own the host here.
 final class FirstClickHostingController<Content: View>: NSViewController {
     private let host: FirstClickHostingView<AnyView>
+    private weak var sizingPopover: NSPopover?
+    private var sizeUpdatePending = false
     var sizingOptions: NSHostingSizingOptions = [.intrinsicContentSize, .preferredContentSize] {
         didSet { host.sizingOptions = sizingOptions }
     }
@@ -179,16 +183,85 @@ final class FirstClickHostingController<Content: View>: NSViewController {
         view = host
         preferredContentSize = host.fittingSize
         host.setFrameSize(preferredContentSize)
-        host.sizeDidChange = { [weak self] size in
-            guard let self, self.preferredContentSize != size else { return }
+        host.sizeDidChange = { [weak self] in self?.scheduleContentSizeUpdate() }
+    }
+    required init?(coder: NSCoder) { fatalError("Use init(rootView:)") }
+    override func loadView() { view = host }
+
+    /// A popover owns its private window hierarchy. Updating the hosting
+    /// controller alone does not reliably resize that hierarchy on macOS.
+    func install(in popover: NSPopover) {
+        sizingPopover = popover
+        popover.contentViewController = self
+        popover.contentSize = preferredContentSize
+    }
+
+    private func scheduleContentSizeUpdate() {
+        guard !sizeUpdatePending else { return }
+        sizeUpdatePending = true
+        // Coalesce SwiftUI layout changes outside the active layout pass.
+        // No timer, polling, or close/reopen cycle is needed to resize.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.sizeUpdatePending = false
+            // fittingSize can reflect the container's previous constraints.
+            // intrinsicContentSize is SwiftUI's new ideal content size.
+            let measured = self.host.intrinsicContentSize
+            guard measured.width.isFinite, measured.height.isFinite, measured.width > 0, measured.height > 0 else { return }
+            let size = NSSize(width: ceil(measured.width), height: ceil(measured.height))
+            guard self.preferredContentSize != size else { return }
             self.preferredContentSize = size
-            if let window = self.view.window, window.contentViewController === self, !window.inLiveResize {
+            if let popover = self.sizingPopover, popover.contentViewController === self {
+                if popover.contentSize != size { popover.contentSize = size }
+            } else if let window = self.view.window, window.contentViewController === self, !window.inLiveResize {
                 window.setContentSize(size)
             }
         }
     }
-    required init?(coder: NSCoder) { fatalError("Use init(rootView:)") }
-    override func loadView() { view = host }
+}
+
+/// Dock presence follows open utility windows, never the menu popover or HUD.
+/// Minimized/hidden windows remain registered so a Dock click can restore them.
+final class DockPresenceCoordinator {
+    private var enabled = false
+    private var windows = Set<ObjectIdentifier>()
+    private var appliedPolicy: NSApplication.ActivationPolicy?
+    private var closeUpdatePending = false
+    private let applyPolicy: (NSApplication.ActivationPolicy) -> Bool
+    private let afterClose: (@escaping () -> Void) -> Void
+
+    init(applyPolicy: @escaping (NSApplication.ActivationPolicy) -> Bool = { NSApp.setActivationPolicy($0) },
+         afterClose: @escaping (@escaping () -> Void) -> Void = { DispatchQueue.main.async(execute: $0) }) {
+        self.applyPolicy = applyPolicy
+        self.afterClose = afterClose
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        self.enabled = enabled
+        reconcile()
+    }
+
+    func windowWillOpen(_ window: NSWindow) {
+        windows.insert(ObjectIdentifier(window))
+        reconcile()
+    }
+
+    func windowWillClose(_ window: NSWindow) {
+        guard windows.remove(ObjectIdentifier(window)) != nil, !closeUpdatePending else { return }
+        closeUpdatePending = true
+        // A welcome → controls handoff must not flash the Dock icon off/on.
+        afterClose { [weak self] in
+            guard let self else { return }
+            self.closeUpdatePending = false
+            self.reconcile()
+        }
+    }
+
+    private func reconcile() {
+        let policy: NSApplication.ActivationPolicy = enabled && !windows.isEmpty ? .regular : .accessory
+        guard appliedPolicy != policy else { return }
+        if applyPolicy(policy) { appliedPolicy = policy }
+    }
 }
 
 /// Close the old surface before activating and focusing its destination.

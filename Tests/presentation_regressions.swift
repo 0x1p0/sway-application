@@ -7,6 +7,14 @@ private final class ClickCounterView: NSView {
     override func mouseDown(with event: NSEvent) { clicks += 1 }
 }
 
+private struct SizingFixtureView: View {
+    @State private var expanded = false
+    var body: some View {
+        MoreOptionsButton(isExpanded: expanded) { expanded.toggle() }
+            .frame(width: 320, height: expanded ? 420 : 204).fixedSize()
+    }
+}
+
 @MainActor
 private final class PresentationTestDelegate: NSObject, NSApplicationDelegate {
     let runTests: () -> Void
@@ -92,6 +100,9 @@ enum PresentationRegressionTests {
         testSetupProgress()
         testNativeControls()
         testMenuDismissal()
+        testPopoverSizing()
+        testControlsWindowSizing()
+        testDockPresence()
         if live {
             Task { @MainActor in
                 await runLiveTests(panel: panel, host: host, monitor: monitor)
@@ -215,6 +226,108 @@ enum PresentationRegressionTests {
         expect(closes == 2, "stale tracking callback cannot close a newly opened popover")
         monitor.stop()
         expect(!monitor.isTrackingMenu && !monitor.isMonitoring, "closing releases menu guards and monitors")
+    }
+
+    @MainActor
+    private static func testPopoverSizing() {
+        let controller = FirstClickHostingController(rootView: SizingFixtureView())
+        let popover = NSPopover()
+        controller.install(in: popover)
+        // A non-visible backing window supplies layout/drawing without showing
+        // UI. The separate renderer also checks a genuinely displayed popover.
+        let layoutWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 204),
+                                    styleMask: [.borderless], backing: .buffered, defer: false)
+        layoutWindow.isReleasedWhenClosed = false
+        layoutWindow.contentView = controller.view
+        controller.view.layoutSubtreeIfNeeded()
+        if let bitmap = controller.view.bitmapImageRepForCachingDisplay(in: controller.view.bounds) {
+            controller.view.cacheDisplay(in: controller.view.bounds, to: bitmap)
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        expect(popover.contentViewController === controller, "popover uses the production first-click host")
+        expect(popover.contentSize == NSSize(width: 320, height: 204), "popover initially matches its content")
+        guard let button = firstView(FirstClickButton.self, in: controller.view) else {
+            expect(false, "sizing fixture uses the real overflow button"); return
+        }
+        for height: CGFloat in [420, 204, 420, 204] {
+            button.performClick(nil)
+            let deadline = Date().addingTimeInterval(2)
+            repeat {
+                controller.view.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+            } while popover.contentSize.height != height && Date() < deadline
+            expect(controller.preferredContentSize.height == height, "SwiftUI reports height \(height); preferred=\(controller.preferredContentSize), fitting=\(controller.view.fittingSize), popover=\(popover.contentSize)")
+            expect(popover.contentSize == NSSize(width: 320, height: height), "native popover expands and collapses with content, not a fixed frame")
+            expect(popover.contentViewController === controller, "resizing never replaces or reopens the host")
+        }
+        popover.contentViewController = nil
+        layoutWindow.contentView = nil
+        layoutWindow.close()
+    }
+
+    @MainActor
+    private static func testControlsWindowSizing() {
+        let controller = FirstClickHostingController(rootView: SizingFixtureView())
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 204),
+                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentViewController = controller
+        defer { window.contentViewController = nil; window.close() }
+        controller.view.layoutSubtreeIfNeeded()
+        guard let button = firstView(FirstClickButton.self, in: controller.view) else {
+            expect(false, "standalone controls use the same overflow button"); return
+        }
+        for height: CGFloat in [420, 204] {
+            button.performClick(nil)
+            let deadline = Date().addingTimeInterval(2)
+            repeat {
+                controller.view.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+            } while window.contentLayoutRect.height != height && Date() < deadline
+            expect(window.contentLayoutRect.size == NSSize(width: 320, height: height), "standalone Controls window follows content height \(height)")
+            expect(window.contentViewController === controller, "window resizing preserves its controller")
+        }
+    }
+
+    @MainActor
+    private static func testDockPresence() {
+        var applied: [NSApplication.ActivationPolicy] = []
+        var pending: [() -> Void] = []
+        let dock = DockPresenceCoordinator(applyPolicy: { applied.append($0); return true }, afterClose: { pending.append($0) })
+        let first = NSWindow(), second = NSWindow(), replacement = NSWindow()
+        for window in [first, second, replacement] { window.isReleasedWhenClosed = false }
+        func drain() { let work = pending; pending.removeAll(); work.forEach { $0() } }
+        dock.setEnabled(true)
+        expect(applied == [.accessory], "saved Dock preference alone cannot leave an empty Dock app")
+        dock.windowWillOpen(first)
+        expect(applied == [.accessory, .regular], "opening a window shows Dock before focus")
+        dock.windowWillOpen(first)
+        dock.windowWillOpen(second)
+        expect(applied.count == 2, "refocusing and multiple windows do not repeat policy changes")
+        dock.windowWillClose(first)
+        drain()
+        expect(applied.last == .regular && applied.count == 2, "closing one window keeps Dock for the remaining window")
+        dock.windowWillClose(second)
+        expect(applied.last == .regular, "last-close policy waits until AppKit finishes closing")
+        dock.windowWillOpen(replacement)
+        drain()
+        expect(applied.count == 2, "window handoff has no hide/show Dock flicker")
+        dock.setEnabled(false)
+        expect(applied.last == .accessory, "disabling Dock hides it without closing windows")
+        dock.setEnabled(true)
+        expect(applied.last == .regular, "reenabling Dock finds the still-open window")
+        dock.windowWillClose(replacement)
+        drain()
+        expect(applied.last == .accessory, "closing last window returns to menu-bar-only mode")
+        let afterLastClose = applied.count
+        dock.windowWillClose(replacement)
+        drain()
+        expect(applied.count == afterLastClose && pending.isEmpty, "duplicate/unmanaged closes have no side effects")
+        dock.windowWillOpen(first)
+        expect(applied.last == .regular, "reopening restores Dock without resetting the saved preference")
+        dock.windowWillClose(first)
+        drain()
+        expect(applied.last == .accessory, "a repeated open/close cycle returns to the menu bar")
     }
 
     @MainActor

@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private var quickControlsWindow: NSWindow?
     private var updatesWindow: NSWindow?
     private let focus = WindowFocusCoordinator()
+    private let dockPresence = DockPresenceCoordinator()
     private let dismissal = PopoverDismissalMonitor()
     private let setupProgress = SetupProgress()
     private let presentsSetupOnLaunch: Bool
@@ -55,7 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(TrackpadSettings.shared.showDockIcon ? .regular : .accessory)
+        dockPresence.setEnabled(TrackpadSettings.shared.showDockIcon)
         let controls = ControlCenterModel.shared
         controls.refresh()
         setupMenuBar()
@@ -102,9 +103,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         TrackpadSettings.shared.$showDockIcon.removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] show in
-                NSApp.setActivationPolicy(show ? .regular : .accessory)
-                if let window = self?.welcomeWindow ?? self?.settingsWindow ?? self?.quickControlsWindow ?? self?.updatesWindow,
-                   window.isVisible { self?.focus.show(window) }
+                guard let self else { return }
+                self.dockPresence.setEnabled(show)
+                if let window = self.preferredReopenWindow, window.isVisible { self.present(window) }
             }.store(in: &cancellables)
 
         UpdateChecker.shared.$updateAvailable.removeDuplicates()
@@ -174,7 +175,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         item.button?.setAccessibilityLabel("Sway trackpad controls")
         item.button?.imagePosition = .imageLeading
         let panel = NSPopover()
-        panel.contentSize = NSSize(width: 320, height: 204)
         // One dismissal owner. Menu tracking is explicitly protected before
         // the native pull-down begins, including the first activation click.
         panel.behavior = .applicationDefined
@@ -222,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         }
         ControlCenterModel.shared.setVisible("settings", true)
         ControlCenterModel.shared.refresh()
-        focus.show(window, closingPrevious: { self.closePopover() })
+        present(window)
     }
 
     @objc func checkForUpdates() {
@@ -242,12 +242,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             window.center()
             updatesWindow = window
         }
-        focus.show(window, closingPrevious: { self.closePopover() })
+        present(window)
         UpdateChecker.shared.check()
     }
 
     @objc func showGettingStarted() {
-        if let welcomeWindow { focus.show(welcomeWindow, closingPrevious: { self.closePopover() }); return }
+        if let welcomeWindow { present(welcomeWindow); return }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 550),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Welcome to Sway"
@@ -268,20 +268,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         welcomeWindow = window
         ControlCenterModel.shared.setVisible("welcome", true)
         ControlCenterModel.shared.refresh()
-        focus.show(window, closingPrevious: { self.closePopover() })
+        present(window)
     }
 
     /// Reopening from Applications, Spotlight, or the optional Dock icon is a
     /// reliable route even when macOS/a menu-bar manager hides the status item.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if setupProgress.shouldPresent(hasAccess: AXIsProcessTrusted()) { showGettingStarted() }
-        else if let welcomeWindow { focus.show(welcomeWindow, closingPrevious: { self.closePopover() }) }
+        else if let window = preferredReopenWindow { present(window) }
         else { showQuickControls() }
-        return true
+        return false // Already handled; do not let AppKit choose another window.
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    private var managedWindows: [NSWindow] {
+        [quickControlsWindow, settingsWindow, welcomeWindow, updatesWindow].compactMap { $0 }
+    }
+
+    private var preferredReopenWindow: NSWindow? {
+        let windows = managedWindows
+        return NSApp.orderedWindows.first { candidate in windows.contains { $0 === candidate } } ?? windows.first
+    }
+
+    private func present(_ window: NSWindow) {
+        dockPresence.windowWillOpen(window)
+        focus.show(window, closingPrevious: { self.closePopover() })
     }
 
     @objc func showQuickControls() {
-        if let quickControlsWindow { focus.show(quickControlsWindow, closingPrevious: { self.closePopover() }); return }
+        if let quickControlsWindow { present(quickControlsWindow); return }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
                               styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "Sway Controls"
@@ -297,7 +313,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         quickControlsWindow = window
         ControlCenterModel.shared.setVisible("controls", true)
         ControlCenterModel.shared.refresh()
-        focus.show(window, closingPrevious: { self.closePopover() })
+        present(window)
     }
 
     @objc func revealMenuBar() { showPopover() }
@@ -361,7 +377,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         if popover.contentViewController == nil {
             let host = FirstClickHostingController(rootView: MenuBarView(openSettings: { [weak self] in self?.showSettings() }))
             host.sizingOptions = [.intrinsicContentSize, .preferredContentSize]
-            popover.contentViewController = host
+            host.install(in: popover)
         }
         ControlCenterModel.shared.setVisible("popover", true)
         ControlCenterModel.shared.refresh()
@@ -411,6 +427,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     }
 
     func windowWillClose(_ notification: Notification) {
+        guard let closingWindow = notification.object as? NSWindow,
+              managedWindows.contains(where: { $0 === closingWindow }) else { return }
+        defer { dockPresence.windowWillClose(closingWindow) }
         if let window = notification.object as? NSWindow, window === updatesWindow {
             window.contentViewController = nil
             updatesWindow = nil

@@ -39,7 +39,7 @@ To check the DMG, download its release's `SHA256SUMS.txt` into the same folder,
 open Terminal in that folder, and run (adjust the version for older releases):
 
 ```bash
-grep -F '  Sway-1.0.9-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
+grep -F '  Sway-1.0.10-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 Expect `OK`. A checksum confirms a match to the release files, not independent
@@ -59,9 +59,14 @@ Users affected by the older close-without-permission bug are recovered automatic
 
 Use **Show menu bar controls** to reveal the real menu and highlight its icon.
 If the icon is hidden or your menu bar is crowded, reopen **Sway from Spotlight
-or Applications** to open a separate controls window. For a permanent alternative,
-enable **Show Sway in Dock** during setup or in **Settings → General**. This does
-not enable launch at login. Revisit **Settings → About & help → Open guide…**
+or Applications** to restore an existing Sway window or open separate controls.
+The three-dot menu also has **Open Controls…**. Enable **Show in Dock while
+windows are open** during setup or in **Settings → General** for Dock access to
+open windows. Closing the last window hides the running Dock icon; Sway and its
+menu bar controls keep running. Minimizing a window keeps Dock access so you can
+restore it. This does not enable launch at login or change the saved Dock preference.
+If you pinned Sway using macOS's **Keep in Dock**, uncheck that system option to
+remove the pinned shortcut too. Revisit **Settings → About & help → Open guide…**
 or **Getting Started…** in the three-dot menu at any time.
 **Sway name** is also available as a menu bar display in Appearance settings.
 
@@ -89,7 +94,7 @@ Use **Find a setting** to filter categories by words such as typing, haptics, lo
 | **Software updates** | Check, download, and install signed updates. |
 | **About & help** | Reopen setup, see the version, or reset gesture preferences. |
 
-The three-dot button expands quick options inside the same panel, without opening a second popup window. Click it again to collapse them.
+The three-dot button expands quick options inside the same panel, without opening a second popup window. The native panel resizes to fit all options; click again to collapse it. The standalone Controls window resizes the same way.
 
 Pause gestures when you want normal trackpad behavior. Direct sliders remain useful when edge gestures are paused. The settings window can stay open while you work in another app or test physical gestures; the compact menu closes on outside clicks, application switches, or Escape. Its old Keep Open option has been removed. Settings opens focused on the first click. The separate controls window opened from Spotlight or the Dock stays open like a normal window.
 
@@ -196,7 +201,7 @@ in Sway; signature failures never fall back to unsigned updates. The installer
 starts only when requested, with automatic downloads and system profiling off.
 No second periodic updater runs alongside the daily metadata check.
 
-**Install 1.0.9 manually once from this repository.** Copies from the previous
+**Install the current release manually once from this repository.** Copies from the previous
 repository still point to its now-private update feed and cannot discover this
 release. Future signed releases from this repository can be installed directly. Keep Sway
 in Applications, not on its mounted DMG. Installation in a protected location
@@ -221,23 +226,23 @@ every push to main and on PRs. Main still cannot be deleted or force-pushed.
 Release tests and manual signing approval remain mandatory.
 
 Pushing main runs **Checks**; pushing a new version tag runs **Release**.
-For the prepared 1.0.9 changes, run this chain from the project directory. It
+For the prepared 1.0.10 changes, run this chain from the project directory. It
 stops at the first failure, commits before tagging, and pushes main and the tag
 together so the release cannot accidentally target the previous commit:
 
 ```bash
 git switch main &&
 git pull --ff-only origin main &&
-git add .github/CODEOWNERS README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj releases/v1.0.9.md &&
-git commit -m "Prepare Sway 1.0.9 release" &&
-git tag -a v1.0.9 -m "Sway 1.0.9" &&
-git push --atomic origin main v1.0.9
+git add README.md Sway/AppDelegate.swift Sway/AppPresentation.swift Sway/ContentView.swift Sway/Info.plist Sway.xcodeproj/project.pbxproj Tests/RenderUI.swift Tests/presentation_regressions.swift releases/v1.0.10.md &&
+git commit -m "Fix menu sizing and Dock window behavior" &&
+git tag -a v1.0.10 -m "Sway 1.0.10" &&
+git push --atomic origin main v1.0.10
 ```
 
 The v1.0.7 build failed because a verification tool was missing. The v1.0.8
 tag was pushed before the fix merged and still points to 1.0.7 source, so its
 version check correctly stopped publication. Both tags stay unchanged; use
-the new v1.0.9 tag on the corrected source, not a rerun of either old tag.
+the new version tag on the corrected source, not a rerun of either old tag.
 For later releases, update the app/project version and build number, add
 matching release notes, and use that new version consistently in this chain.
 
@@ -284,11 +289,11 @@ and billing settings.
 To build and verify the downloads locally without publishing:
 
 ```bash
-bash scripts/package-release.sh v1.0.9
+bash scripts/package-release.sh v1.0.10
 ```
 
 Packaging requires Python 3.10+, Xcode 26+, and access to the existing Keychain
-signing key. Artifacts appear under **build/releases/v1.0.9/**; existing outputs
+signing key. Artifacts appear under **build/releases/v1.0.10/**; existing outputs
 are never overwritten. For a build without signing-key access, set
 **SWAY_DEFER_UPDATE_SIGNING=1**. This produces local unsigned update artifacts,
 not a publishable signed feed.
@@ -355,7 +360,8 @@ security configuration. It never requests a download or installation. A full
 installed-app update/relaunch still needs testing against a published newer
 release; these checks do not claim to simulate that entire interaction.
 Presentation tests check native first-click controls and menu actions, update-button
-styling, menu-safe outside dismissal, monitor cleanup, and setup completion/migration.
+styling, menu-safe outside dismissal, monitor cleanup, setup completion/migration,
+repeated popover expansion/collapse, and window-driven Dock presence.
 For the bounded native focus test, run `bash scripts/test-presentation.sh --live`
 in a graphical session and click **Run focus test** in its safe preview window.
 It verifies activation, keyboard focus, minimized-window recovery, and outside-click
@@ -379,6 +385,12 @@ Render the interface:
 ```bash
 bash scripts/render-ui.sh
 ```
+
+After rendering, run `build/UIRender/RenderUI --verify-native-presentation` in a
+graphical session to check the actual popover's visible bounds while expanding
+and collapsing in light/dark mode, plus native Dock open/minimize/restore/close
+behavior. It briefly shows its own safe preview windows, then closes them; it
+never launches production Sway or changes its preferences or hardware levels.
 
 This compiles a separate render executable and saves the compact panel, every settings category, and both floating indicator orientations in light and dark appearances under `build/UIRender/`. Fixtures cover paused gestures, Reduce Transparency, 1% zones, the optional top edge, and every scrolled section. The panel is measured at its real fitting height rather than cropped to an assumed height. Views sit in native windows over a quiet neutral backdrop so material contrast can be reviewed. The indicator fixtures verify that the readout is embedded through `NSGlassEffectView.contentView`, without a clipping ancestor.
 

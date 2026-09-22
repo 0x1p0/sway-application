@@ -392,6 +392,9 @@ struct MenuBarView: View {
             .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)
             if showsMoreOptions {
                 VStack(alignment: .leading, spacing: 12) {
+                    Button { if !preview { (NSApp.delegate as? AppDelegate)?.showQuickControls() } } label: {
+                        Label("Open Controls…", systemImage: "macwindow").frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     Button { if !preview { (NSApp.delegate as? AppDelegate)?.checkForUpdates() } } label: {
                         Label("Software Updates…", systemImage: "arrow.down.circle").frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -829,7 +832,7 @@ struct ContentView: View {
 
     private var generalPage: some View {
         SettingsSection("Stay out of the way") {
-            ToggleRow("Show Sway in Dock", detail: "Open controls even when your menu bar is full.", value: $settings.showDockIcon)
+            ToggleRow("Show in Dock while windows are open", detail: "Close the last window to hide the Dock icon. Sway keeps running in the menu bar.", value: $settings.showDockIcon)
             Divider()
             HStack {
                 Text("You can also reopen Sway from Spotlight or Applications.")
@@ -1026,8 +1029,8 @@ struct GettingStartedView: View {
                 }
             }.padding(14).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
             VStack(alignment: .leading, spacing: 8) {
-                Toggle("Show Sway in Dock", isOn: $settings.showDockIcon).toggleStyle(.switch).controlSize(.small)
-                Text("Menu bar crowded or hidden? Reopen Sway from Spotlight or Applications to bring up controls.")
+                Toggle("Show in Dock while windows are open", isOn: $settings.showDockIcon).toggleStyle(.switch).controlSize(.small)
+                Text("Close the last window to hide the Dock icon; Sway stays in your menu bar. Reopen it from Spotlight or Applications whenever you need controls.")
                     .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Divider()

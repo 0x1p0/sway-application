@@ -8,6 +8,11 @@ import SwiftUI
 struct RenderUI {
     @MainActor
     static func main() throws {
+        if CommandLine.arguments.contains("--verify-native-presentation") {
+            NSApplication.shared.setActivationPolicy(.accessory)
+            try verifyNativePresentation()
+            return
+        }
         let previewMenu = CommandLine.arguments.contains("--preview-menu") || Bundle.main.bundleIdentifier == "com.sway.uipreview"
         let previewOSD = CommandLine.arguments.contains("--preview-osd") || Bundle.main.bundleIdentifier == "com.sway.osdpreview"
         let output = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "/private/tmp/SwayUI")
@@ -126,10 +131,10 @@ struct RenderUI {
                     statusItem.button?.title = "Sway Preview"
                     let popover = NSPopover()
                     popover.behavior = .applicationDefined
-                    let controller = NSHostingController(rootView: root)
+                    let controller = FirstClickHostingController(rootView: root)
                     controller.sizingOptions = [.intrinsicContentSize, .preferredContentSize]
                     controller.view.appearance = NSAppearance(named: appearanceName)
-                    popover.contentViewController = controller
+                    controller.install(in: popover)
                     popover.appearance = NSAppearance(named: appearanceName)
                     guard let button = statusItem.button else { throw RenderError.previewAnchorUnavailable }
                     popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
@@ -196,6 +201,82 @@ struct RenderUI {
             }
         }
         try renderIndicators(to: output)
+    }
+
+    /// A bounded, graphical-session check of the actual native container, not
+    /// just SwiftUI's requested size. Only isolated preview controls are used.
+    @MainActor
+    private static func verifyNativePresentation() throws {
+        func settle(_ view: NSView) {
+            for _ in 0..<15 {
+                view.layoutSubtreeIfNeeded()
+                view.displayIfNeeded()
+                NSApp.updateWindows()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+            }
+        }
+        func findMore(_ view: NSView) -> NSButton? {
+            if let button = view as? NSButton, button.accessibilityLabel() == "More options" { return button }
+            return view.subviews.lazy.compactMap { findMore($0) }.first
+        }
+        let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1024, height: 768)
+        let anchor = NSWindow(contentRect: NSRect(x: screen.midX - 100, y: screen.maxY - 100, width: 200, height: 40),
+                              styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        anchor.title = "Sway — safe layout check"
+        anchor.isReleasedWhenClosed = false
+        defer { anchor.close() }
+        let button = NSButton(frame: NSRect(x: 80, y: 10, width: 40, height: 20))
+        button.title = "Sway"
+        anchor.contentView?.addSubview(button)
+        anchor.orderFront(nil)
+        for name in ["light", "dark"] {
+            let suite = "com.sway.native-layout.\(UUID().uuidString)"
+            guard let defaults = UserDefaults(suiteName: suite) else { throw RenderError.preferencesUnavailable }
+            defer { defaults.removePersistentDomain(forName: suite) }
+            let settings = TrackpadSettings(defaults: defaults)
+            settings.appearanceMode = name
+            let controller = FirstClickHostingController(rootView: MenuBarView(settings: settings, preview: true, openSettings: {}))
+            let popover = NSPopover()
+            popover.behavior = .applicationDefined
+            popover.animates = false
+            controller.install(in: popover)
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            defer { popover.close(); popover.contentViewController = nil }
+            settle(controller.view)
+            guard popover.isShown, let more = findMore(controller.view) else { throw RenderError.invalidInlineOptions }
+            let collapsed = controller.view.fittingSize.height
+            for expanded in [true, false, true, false] {
+                more.performClick(nil)
+                settle(controller.view)
+                let measured = controller.view.fittingSize
+                let visible = controller.view.visibleRect
+                print("Native \(name) \(expanded ? "expanded" : "collapsed"): fitting=\(measured), popover=\(popover.contentSize), bounds=\(controller.view.bounds.size), visible=\(visible.size)")
+                guard popover.isShown, popover.contentViewController === controller,
+                      more.accessibilityValue() as? String == (expanded ? "Expanded" : "Collapsed"),
+                      expanded ? measured.height > collapsed + 100 : abs(measured.height - collapsed) < 1,
+                      abs(popover.contentSize.height - measured.height) < 1,
+                      visible.height >= measured.height - 1,
+                      visible.width >= measured.width - 1 else { throw RenderError.invalidInlineOptions }
+            }
+            popover.close()
+        }
+        let dock = DockPresenceCoordinator()
+        dock.setEnabled(true)
+        guard NSApp.activationPolicy() == .accessory else { throw RenderError.invalidDockLifecycle }
+        dock.windowWillOpen(anchor)
+        settle(anchor.contentView!)
+        guard NSApp.activationPolicy() == .regular else { throw RenderError.invalidDockLifecycle }
+        anchor.miniaturize(nil)
+        settle(anchor.contentView!)
+        guard anchor.isMiniaturized, NSApp.activationPolicy() == .regular else { throw RenderError.invalidDockLifecycle }
+        anchor.deminiaturize(nil)
+        settle(anchor.contentView!)
+        guard !anchor.isMiniaturized, NSApp.activationPolicy() == .regular else { throw RenderError.invalidDockLifecycle }
+        dock.windowWillClose(anchor)
+        anchor.close()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        guard NSApp.activationPolicy() == .accessory else { throw RenderError.invalidDockLifecycle }
+        print("Native expanded/collapsed popover bounds and open/minimize/restore/close Dock policy verified. No production app or hardware controls ran.")
     }
 
     /// Exercise the real menu hierarchy while its window is not key. The first
@@ -378,6 +459,7 @@ struct RenderUI {
         case invalidGlassHierarchy
         case invalidIndicatorValue
         case invalidInlineOptions
+        case invalidDockLifecycle
     }
 }
 
