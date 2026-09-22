@@ -36,6 +36,9 @@ expect.call(events.key?('pull_request') && !events.key?('pull_request_target'), 
 expect.call(checks.fetch('permissions') == {'contents' => 'read'}, 'PR token must be read-only')
 expect.call(checks.fetch('jobs').fetch('checks').fetch('name') == 'Sway checks', 'required status-check name must stay stable')
 expect.call(!checks.to_s.include?('secrets.'), 'PR checks must never reference secrets')
+[build, checks.fetch('jobs').fetch('checks')].each do |job|
+  expect.call(job.fetch('steps').any? { |step| step['run'].to_s.include?('ruby Tests/runtime_verification_regressions.rb') }, 'both build paths must test runtime verification without optional tools')
+end
 [release, checks].each do |workflow|
   workflow.fetch('jobs').each_value do |job|
     job.fetch('steps').each do |step|

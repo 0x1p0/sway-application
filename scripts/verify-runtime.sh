@@ -7,9 +7,11 @@ if [[ "$metadata" != *"runtime)"* ]]; then
     exit 1
 fi
 entitlements="$(codesign -d --entitlements :- "$bundle" 2>/dev/null)"
-printf '%s' "$entitlements" | plutil -extract 'com\.apple\.security\.cs\.disable-library-validation' raw - | rg -qx true
-if printf '%s' "$entitlements" | rg -q 'get-task-allow|allow-jit|allow-unsigned-executable-memory|disable-executable-page-protection|allow-dyld-environment-variables|automation.apple-events'; then
-    printf 'Unexpected runtime exception in release signature.\n' >&2
+# plutil ships with macOS; package-manager tools are not guaranteed on CI.
+# Compare the complete parsed dictionary, not a blacklist of known exceptions.
+entitlements_json="$(printf '%s' "$entitlements" | /usr/bin/plutil -convert json -o - -)"
+if [[ "$entitlements_json" != '{"com.apple.security.cs.disable-library-validation":true}' ]]; then
+    printf 'Expected only the documented library-validation entitlement, with boolean true.\n' >&2
     exit 1
 fi
 printf 'Hardened Runtime verified; only the documented ad-hoc library-validation exception is present.\n'

@@ -44,6 +44,7 @@ jobs:
           bash scripts/test-audio.sh
           bash scripts/test-brightness.sh
           bash scripts/test-controls.sh
+          ruby Tests/runtime_verification_regressions.rb
           ruby Tests/release_policy_regressions.rb
       - name: Build and verify hardened universal ZIP and DMG
         run: |
