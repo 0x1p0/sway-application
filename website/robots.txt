@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sway-application.vercel.app/sitemap.xml

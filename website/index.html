@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f7f5" />
+    <title>Sway — A lighter touch for your Mac.</title>
+    <link rel="canonical" href="https://sway-application.vercel.app/">
+    <meta property="og:url" content="https://sway-application.vercel.app/">
+    <meta
+      name="description"
+      content="Control your Mac’s volume and brightness with a swipe along your trackpad’s edges. A quiet, customizable menu bar app by 0x1p0. Free for macOS."
+    />
+    <meta property="og:title" content="Sway — A lighter touch for your Mac." />
+    <meta
+      property="og:description"
+      content="Your volume. Your brightness. Right at your fingertips. Discover Sway, a free macOS utility by 0x1p0."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/png" href="/assets/sway-icon.png" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <nav class="navigation wrap" aria-label="Main navigation">
+        <a class="brand" href="#" aria-label="Sway home"
+          ><img
+            src="/assets/sway-icon.png"
+            width="34"
+            height="34"
+            alt=""
+          /><span>Sway</span></a
+        >
+        <div class="nav-links">
+          <a href="#experience">Experience</a><a href="#details">The details</a
+          ><a href="https://github.com/0x1p0/sway-application">GitHub</a>
+        </div>
+        <a class="button button-small button-dark" href="#download">Get Sway</a>
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <p class="eyebrow">
+          <span class="status-dot"></span> SMALL APP. LOVELY DIFFERENCE.
+        </p>
+        <h1 id="hero-title">
+          A lighter touch.<br /><span>A better flow.</span>
+        </h1>
+        <p class="hero-description">
+          Volume and brightness, right at your fingertips.<br
+            class="desktop-break"
+          />
+          Just swipe the edge of your trackpad. That’s Sway.
+        </p>
+        <div class="hero-actions">
+          <a
+            class="button button-dark download-link"
+            href="https://github.com/0x1p0/sway-application/releases/download/v1.0.14/Sway-1.0.14-macos-universal.dmg"
+            ><svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M16.7 12.7c0-2 1.6-3 1.7-3.1-1-1.5-2.6-1.7-3.2-1.7-1.4-.2-2.7.8-3.4.8-.7 0-1.8-.8-2.9-.8-1.5 0-2.9.9-3.7 2.2-1.6 2.7-.4 6.7 1.1 8.9.7 1 1.5 2.1 2.6 2 1 0 1.5-.7 2.9-.7 1.3 0 1.7.7 2.9.7 1.2 0 1.9-1 2.6-2 .8-1.2 1.2-2.4 1.2-2.4-.1 0-2.4-.9-2.4-3.9ZM14.5 6.5c.6-.8 1.1-1.9 1-3-.9 0-2 .6-2.7 1.4-.6.7-1.2 1.8-1.1 2.9 1 .1 2.1-.5 2.8-1.3Z"
+              /></svg
+            >Download for Mac</a
+          ><a
+            class="button button-light"
+            href="https://github.com/0x1p0/sway-application"
+            >View on GitHub</a
+          >
+        </div>
+        <p class="compatibility">
+          Free · macOS 13+ · Apple silicon & Intel ·
+          <span class="release-version">v1.0.14</span>
+        </p>
+        <div class="hero-demo" id="experience">
+          <div class="demo-toolbar">
+            <span class="demo-label"
+              ><span class="live-dot"></span> A LITTLE HANDS-ON</span
+            ><span class="demo-instruction" id="demo-instruction"
+              >Drag either edge to try it</span
+            >
+          </div>
+          <div class="demo-stage">
+            <div class="level-bubble brightness-bubble" aria-hidden="true">
+              <span class="sun-symbol">☀</span
+              ><span id="brightness-bubble-value">68</span>
+            </div>
+            <div
+              class="trackpad"
+              role="group"
+              aria-label="Interactive trackpad preview"
+            >
+              <div class="edge edge-left" data-control="brightness">
+                <div class="edge-fill" id="brightness-fill"></div>
+                <span class="edge-symbol" aria-hidden="true">☀</span
+                ><input
+                  id="brightness"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="68"
+                  aria-label="Preview brightness"
+                  aria-valuetext="68 percent"
+                />
+                <div class="edge-contact" aria-hidden="true">
+                  <i></i><i></i>
+                </div>
+              </div>
+              <div class="trackpad-center">
+                <svg
+                  class="wave-mark"
+                  viewBox="0 0 84 64"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 32h10l4-13 6 28 7-39 7 49 7-49 7 39 6-28 4 13h10"
+                  /></svg
+                ><span class="center-title">Stay in your flow.</span
+                ><span class="center-caption">The middle is still yours.</span>
+              </div>
+              <div class="edge edge-right" data-control="volume">
+                <div class="edge-fill" id="volume-fill"></div>
+                <svg
+                  class="edge-symbol icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M11 4 5 9H2v6h3l6 5V4Z"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" /></svg
+                ><input
+                  id="volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="42"
+                  aria-label="Preview volume"
+                  aria-valuetext="42 percent"
+                />
+                <div class="edge-contact" aria-hidden="true">
+                  <i></i><i></i>
+                </div>
+              </div>
+            </div>
+            <div class="level-bubble volume-bubble" aria-hidden="true">
+              <svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              >
+                <path
+                  d="M11 4 5 9H2v6h3l6 5V4Z"
+                  fill="currentColor"
+                  stroke="none"
+                />
+                <path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" /></svg
+              ><span id="volume-bubble-value">42</span>
+            </div>
+          </div>
+          <div class="demo-legend">
+            <span>Left edge <strong>Brightness</strong></span
+            ><span class="gesture-note">Two fingers. One simple swipe.</span
+            ><span>Right edge <strong>Volume</strong></span>
+          </div>
+          <p class="demo-disclaimer">
+            Interactive preview. Your Mac’s settings won’t change.
+            <button class="text-button" id="reset-demo" type="button">
+              Reset
+            </button>
+          </p>
+        </div>
+      </section>
+      <section class="intro wrap section-space" id="details">
+        <p class="eyebrow">LESS REACHING. MORE DOING.</p>
+        <h2>The controls you need.<br /><span>Exactly where you are.</span></h2>
+        <p>
+          No hunting for keys. No interrupting a good thought.<br
+            class="desktop-break"
+          />
+          Just a small gesture that feels like second nature.
+        </p>
+      </section>
+      <section class="feature-grid wrap" aria-label="Thoughtful by design">
+        <article class="feature-card native-card">
+          <p class="card-kicker">RIGHT AT HOME</p>
+          <h3>Feels like your Mac.<br />Because it belongs there.</h3>
+          <p>
+            A quiet menu bar panel. Native controls.<br />Liquid Glass on macOS
+            26 and later.
+          </p>
+          <div
+            class="menu-preview"
+            role="img"
+            aria-label="Illustrated Sway menu bar panel with brightness and volume sliders, a gestures switch, and Settings"
+          >
+            <div class="menu-top">
+              <strong>Sway</strong
+              ><span>Gestures <i class="mini-toggle"></i></span>
+            </div>
+            <div class="menu-line">
+              <span>☀ &nbsp; Brightness</span><span>68%</span>
+            </div>
+            <div class="mini-slider"><i style="width: 68%"></i></div>
+            <div class="menu-line">
+              <span>◖)) &nbsp; Volume</span><span>42%</span>
+            </div>
+            <div class="mini-slider"><i style="width: 42%"></i></div>
+            <div class="menu-bottom">
+              <span>Settings…</span><span>↶ &nbsp; ···</span>
+            </div>
+          </div>
+          <p class="preview-caption">
+            Interface illustration · follows your system appearance
+          </p>
+        </article>
+        <article class="feature-card haptics-card">
+          <p class="card-kicker">A FEELING THAT FITS</p>
+          <h3>A little feedback.<br />Just your kind.</h3>
+          <p>
+            Choose your haptic style, tap spacing,<br />and a gentle
+            confirmation when you start.
+          </p>
+          <div class="haptic-visual" aria-hidden="true">
+            <div class="haptic-ring ring-one"></div>
+            <div class="haptic-ring ring-two"></div>
+            <div class="haptic-ring ring-three"></div>
+            <span class="haptic-dot"></span>
+          </div>
+          <div class="segmented" role="group" aria-label="Preview haptic style">
+            <button type="button" data-haptic="soft" aria-pressed="false">
+              Soft</button
+            ><button type="button" data-haptic="standard" aria-pressed="true">
+              Standard</button
+            ><button type="button" data-haptic="crisp" aria-pressed="false">
+              Crisp
+            </button>
+          </div>
+          <p
+            class="haptic-description"
+            id="haptic-description"
+            aria-live="polite"
+          >
+            A balanced, familiar tap.
+          </p>
+          <p class="preview-caption">
+            Visual preview. Real haptics need a Force Touch trackpad.
+          </p>
+        </article>
+        <article class="feature-card small-card">
+          <div class="stat-mark">1<span>%</span></div>
+          <h3>A finer edge.</h3>
+          <p>
+            Make your edge zones as narrow as 1%. Tune sensitivity, direction,
+            and comfort limits to find your sweet spot.
+          </p>
+        </article>
+        <article class="feature-card small-card">
+          <svg
+            class="feature-icon"
+            viewBox="0 0 40 40"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+          >
+            <path d="m20 3 13 5v11c0 9-13 17-13 17S7 28 7 19V8l13-5Z" />
+            <path d="m13 19 5 5 10-11" />
+          </svg>
+          <h3>Intent, not accidents.</h3>
+          <p>
+            Palm and typing protection check how a gesture starts and moves.
+            Test the rules safely without changing your Mac’s levels.
+          </p>
+        </article>
+        <article class="feature-card small-card">
+          <svg
+            class="feature-icon"
+            viewBox="0 0 40 40"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+          >
+            <rect x="8" y="17" width="24" height="19" rx="5" />
+            <path d="M13 17v-7a7 7 0 0 1 14 0v7m-7 7v5" />
+          </svg>
+          <h3>Your touch stays yours.</h3>
+          <p>
+            Touch data stays on your Mac and isn’t stored. No account to create.
+            No cloud needed for your gestures.
+          </p>
+        </article>
+      </section>
+      <section class="flow-section section-space">
+        <div class="wrap flow-layout">
+          <div class="flow-copy">
+            <p class="eyebrow">THOUGHTFULLY OUT OF THE WAY</p>
+            <h2>Less app.<br /><span>More Mac.</span></h2>
+            <p>
+              Sway lives in your menu bar, not in your way. There when you need
+              it. Quiet when you don’t.
+            </p>
+            <a class="text-link" href="#all-features"
+              >Explore the little details</a
+            >
+          </div>
+          <div class="flow-list">
+            <article>
+              <span class="item-number">01</span>
+              <div>
+                <h3>Keep your scroll.</h3>
+                <p>
+                  Start with two fingers in the same edge zone. A normal scroll
+                  that’s already underway stays a normal scroll.
+                </p>
+              </div>
+            </article>
+            <article>
+              <span class="item-number">02</span>
+              <div>
+                <h3>Take a pause.</h3>
+                <p>
+                  Pause for 5, 15, or 60 minutes. Set a keyboard shortcut, or
+                  exclude the apps where you want Sway to sit out.
+                </p>
+              </div>
+            </article>
+            <article>
+              <span class="item-number">03</span>
+              <div>
+                <h3>Stay up to date.</h3>
+                <p>
+                  Check, download, and install signed updates from inside Sway.
+                  Optional daily checks. You choose when to install.
+                </p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section class="all-features wrap section-space" id="all-features">
+        <div class="section-heading">
+          <p class="eyebrow">SIMPLE UP FRONT. FLEXIBLE UNDERNEATH.</p>
+          <h2>Make it feel like you.</h2>
+          <p>A few good defaults. Plenty of room to make them yours.</p>
+        </div>
+        <div class="feature-details">
+          <details>
+            <summary>
+              Gestures & edge zones<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Pick Everyday, Precise, or One finger. Assign brightness,
+                volume, or no action to each edge. Set side widths from 1–40%,
+                sensitivity, direction, and the distance needed to activate a
+                gesture.
+              </p>
+              <p>
+                One-finger mode also offers an optional top edge, from 1–30%
+                high, with horizontal or vertical gestures and configurable
+                actions.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              Palm protection & safe testing<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Sway checks starting position, finger count, movement, timing,
+                and typing activity before accepting a gesture. Tune the intent
+                checks and typing protection to suit your hands.
+              </p>
+              <p>
+                The safe test view explains which rule accepted or stopped a
+                gesture, including contact count, distance, straightness, and
+                duration. It leaves volume, brightness, the pointer, and haptics
+                unchanged. Lift all fingers before trying again.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              Volume, brightness & haptics<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Set minimum and maximum comfort levels, configure mute behavior,
+                or use Undo after an adjustment. Menu bar sliders are still
+                available when gestures are paused.
+              </p>
+              <p>
+                Choose Soft, Standard, or Crisp native haptic patterns, taps at
+                2%, 5%, or 10% steps, and an optional gesture-start tap. Try the
+                feedback in Settings. These are patterns, not a hardware
+                strength dial; what you feel depends on your trackpad and macOS.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              Appearance & everyday shortcuts<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Follow the system theme or choose light or dark. Show an icon,
+                Sway’s name, volume, or brightness in the menu bar, and
+                customize the on-screen indicator. Native Liquid Glass is used
+                on macOS 26+, with translucent materials on earlier versions and
+                support for Reduce Motion and Reduce Transparency.
+              </p>
+              <p>
+                Launch at login, exclude apps, set a pause shortcut, and choose
+                whether Sway appears in the Dock while windows are open. Closing
+                the last window can hide its Dock icon while menu bar controls
+                keep running. Reopen from Spotlight if your menu bar is crowded.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              Settings, help & software updates<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Search the organized settings categories to find what you need.
+                Reopen the setup guide at any time, reset gesture preferences,
+                or open a separate Controls window.
+              </p>
+              <p>
+                Check for updates manually or once a day. Download and install
+                from the app when you’re ready. Update signatures verify
+                authenticity; they do not mean the app is Apple-notarized.
+                Update checks contact GitHub, which can see your IP address and
+                app version.
+              </p>
+            </div>
+          </details>
+        </div>
+      </section>
+      <section class="setup-section wrap section-space" id="setup">
+        <div class="section-heading">
+          <p class="eyebrow">FROM DOWNLOAD TO DAILY HABIT</p>
+          <h2>A few steps.<br />A whole new feel.</h2>
+        </div>
+        <ol class="setup-steps">
+          <li>
+            <span class="step-number">1</span>
+            <h3>Make yourself at home.</h3>
+            <p>
+              Download the DMG, drag Sway into Applications, and eject the
+              installer. Then open Sway.
+            </p>
+          </li>
+          <li>
+            <span class="step-number">2</span>
+            <h3>Give gestures access.</h3>
+            <p>
+              Follow the welcome guide to enable Accessibility. Prefer to wait?
+              Use the sliders without granting access.
+            </p>
+          </li>
+          <li>
+            <span class="step-number">3</span>
+            <h3>Find your flow.</h3>
+            <p>
+              Put two fingers on the left edge for brightness, or the right for
+              volume. Swipe up or down. That’s it.
+            </p>
+          </li>
+        </ol>
+        <div class="install-note">
+          <svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v6m0-10v1" />
+          </svg>
+          <p>
+            <strong>A note for your first launch.</strong> Sway is self-signed,
+            not notarized by Apple, so macOS may show a warning. Only if you
+            trust the download, use System Settings → Privacy & Security → Open
+            Anyway.
+            <a href="https://github.com/0x1p0/sway-application#install"
+              >Read the full installation and checksum guide.</a
+            >
+          </p>
+        </div>
+      </section>
+      <section class="faq-section wrap section-space" id="faq">
+        <div>
+          <p class="eyebrow">GOOD TO KNOW</p>
+          <h2>Small questions. <br />Clear answers.</h2>
+          <a
+            class="text-link"
+            href="https://github.com/0x1p0/sway-application/issues"
+            >Ask 0x1p0 on GitHub</a
+          >
+        </div>
+        <div class="faq-list">
+          <details>
+            <summary>
+              Will Sway work on my Mac?<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Sway supports macOS 13 Ventura and later on Apple silicon and
+                Intel Macs, with a compatible Apple Multi-Touch trackpad.
+                Haptics require a Force Touch trackpad. Touch support uses
+                Apple’s private MultitouchSupport framework, so compatibility
+                can change with OS or hardware updates.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              What about external displays and audio?<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Brightness controls the active built-in display; external
+                monitor brightness via DDC isn’t supported. Volume works with
+                audio outputs that allow software volume control. Some digital
+                outputs have a fixed level.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              Why does it need Accessibility access?<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Accessibility lets Sway recognize edge swipes and prevent
+                accepted gestures from also scrolling your page. You can use the
+                menu bar sliders without it. The setup guide is always available
+                in Settings → About & help.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              Is it free? Does it collect my touch data?<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Yes, Sway is free to download. Touch data is processed locally
+                and isn’t stored. There’s no app account. Optional update checks
+                contact GitHub for release information; they do not upload your
+                gestures. The source is available on GitHub.
+              </p>
+              <p>
+                This website has no added analytics or advertising trackers. It
+                is hosted on Vercel and requests public release information from
+                GitHub to keep the download button current; those services
+                receive normal connection information such as your IP address.
+              </p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              How do I update or get help?<span
+                class="detail-plus"
+                aria-hidden="true"
+              ></span>
+            </summary>
+            <div class="detail-content">
+              <p>
+                Open Software updates in Sway to check and install a signed
+                update. You can also download a fresh copy from GitHub Releases.
+                For setup help, reopen Getting Started from the menu or
+                Settings. Found something off?
+                <a href="https://github.com/0x1p0/sway-application/issues"
+                  >Let 0x1p0 know on GitHub.</a
+                >
+              </p>
+            </div>
+          </details>
+        </div>
+      </section>
+      <section class="download-section wrap section-space" id="download">
+        <img
+          class="download-icon"
+          src="/assets/sway-icon.png"
+          width="92"
+          height="92"
+          alt="Sway app icon"
+          loading="lazy"
+        />
+        <p class="eyebrow">MAKE ROOM FOR A LITTLE LESS.</p>
+        <h2>Meet your new<br />muscle memory.</h2>
+        <p>Free to download. Easy to make your own.</p>
+        <a
+          class="button button-dark download-link"
+          href="https://github.com/0x1p0/sway-application/releases/download/v1.0.14/Sway-1.0.14-macos-universal.dmg"
+          >Download Sway for Mac</a
+        >
+        <p class="compatibility">
+          macOS 13+ · Apple silicon & Intel ·
+          <span class="release-version">v1.0.14</span>
+        </p>
+        <p class="download-caveat">
+          Sway is self-signed, not notarized by Apple.<br />Read the
+          <a href="https://github.com/0x1p0/sway-application#install"
+            >first-launch guide</a
+          >
+          before installing.
+        </p>
+      </section>
+    </main>
+    <footer class="site-footer wrap">
+      <a class="brand" href="#"
+        ><img src="/assets/sway-icon.png" width="28" height="28" alt="" /><span
+          >Sway</span
+        ></a
+      >
+      <p>Made with care by <a href="https://github.com/0x1p0">0x1p0</a>.</p>
+      <div>
+        <a href="https://github.com/0x1p0/sway-application/releases">Releases</a
+        ><a href="https://github.com/0x1p0/sway-application/issues">Feedback</a
+        ><a href="https://github.com/0x1p0/sway-application">Source</a>
+      </div>
+    </footer>
+  </body>
+</html>

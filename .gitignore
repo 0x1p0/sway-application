@@ -13,3 +13,5 @@ xcuserdata/
 *.pem
 __pycache__/
 *.py[cod]
+website/.vercel/
+website/node_modules/

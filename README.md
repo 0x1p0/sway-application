@@ -1,5 +1,7 @@
 # Sway
 
+[Explore Sway](https://sway-application.vercel.app/) · [Download for Mac](https://github.com/0x1p0/sway-application/releases/latest)
+
 Sway puts volume and brightness on the edges of your Mac's trackpad. The compact, monochrome menu bar panel keeps everyday controls close; setup and diagnostics live in a separate settings window.
 
 ## Install
