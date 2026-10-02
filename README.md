@@ -2,7 +2,7 @@
 
 [Explore Sway](https://sway-application.vercel.app/) · [Download for Mac](https://github.com/0x1p0/sway-application/releases/latest)
 
-Sway puts volume and brightness on the edges of your Mac's trackpad. The compact, monochrome menu bar panel keeps everyday controls close; setup and diagnostics live in a separate settings window.
+Sway puts volume, brightness, microphone controls, media, navigation, and shortcuts on the edges of your Mac's trackpad. The compact, monochrome menu bar panel keeps everyday controls close; edge assignments, setup, and diagnostics live in a separate settings window.
 
 ## Install
 
@@ -41,7 +41,7 @@ To check the DMG, download its release's `SHA256SUMS.txt` into the same folder,
 open Terminal in that folder, and run (adjust the version for older releases):
 
 ```bash
-grep -F '  Sway-1.0.14-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
+grep -F '  Sway-1.1.0-macos-universal.dmg' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 Expect `OK`. A checksum confirms a match to the release files, not independent
@@ -90,10 +90,10 @@ touch frames before choosing ownership at the actual scroll start, using
 
 ## A small menu, a separate settings window
 
-### Expanded edge actions (current source)
+### Expanded edge actions in 1.1.0
 
-The current source adds **26 assignable actions, plus Off**. These changes are
-not yet included in the v1.0.14 download. Open **Settings → Gestures**, then click
+Version 1.1.0 adds **26 assignable actions, plus Off**.
+Open **Settings → Gestures**, then click
 either edge’s action button to browse or search the categorized action library.
 Both side edges and the optional top edges use the same library. Existing
 brightness/volume assignments stay unchanged when upgrading.
@@ -308,17 +308,18 @@ every push to main and on PRs. Main still cannot be deleted or force-pushed.
 Release tests and manual signing approval remain mandatory.
 
 Pushing main runs **Checks**; pushing a new version tag runs **Release**.
-For the prepared 1.0.14 changes, run this chain from the project directory. It
+For a prepared release, use this pattern from the project directory with its
+new, unused version tag (1.1.0 is the version shown here). It
 stops at the first failure, commits before tagging, and pushes main and the tag
 together so the release cannot accidentally target the previous commit:
 
 ```bash
 git switch main &&
 git pull --ff-only origin main &&
-git add README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj Sway/PalmRejectionManager.swift Sway/TrackpadMonitor.swift Tests/gesture_regressions.swift releases/v1.0.14.md &&
-git commit -m "Fix two-finger scrolling and gesture ownership" &&
-git tag -a v1.0.14 -m "Sway 1.0.14" &&
-git push --atomic origin main v1.0.14
+git add README.md Sway/Info.plist Sway.xcodeproj/project.pbxproj releases/v1.1.0.md &&
+git commit -m "Prepare Sway 1.1.0 release" &&
+git tag -a v1.1.0 -m "Sway 1.1.0" &&
+git push --atomic origin main v1.1.0
 ```
 
 The v1.0.7 build failed because a verification tool was missing. The v1.0.8
@@ -388,11 +389,11 @@ and billing settings.
 To build and verify the downloads locally without publishing:
 
 ```bash
-bash scripts/package-release.sh v1.0.14
+bash scripts/package-release.sh v1.1.0
 ```
 
 Packaging requires Python 3.10+, Xcode 26+, and access to both Keychain signing
-identities. Artifacts appear under **build/releases/v1.0.14/**; existing outputs
+identities. Artifacts appear under **build/releases/v1.1.0/**; existing outputs
 are never overwritten. **SWAY_DEFER_UPDATE_SIGNING=1** skips the update-feed
 signature only; it still requires the persistent app identity. For key-free
 development builds use `bash scripts/build.sh`, not release packaging.
