@@ -19,6 +19,7 @@ extension ZoneAction {
         case .brightness: return SwayTheme.brightness
         case .volume: return SwayTheme.volume
         case .disabled: return .secondary
+        default: return .primary
         }
     }
 }
@@ -147,7 +148,7 @@ final class ControlCenterModel: ObservableObject {
     }
 
     func captureUndo(_ action: ZoneAction) {
-        guard !preview, action != .disabled else { return }
+        guard !preview, action == .volume || action == .brightness else { return }
         interactionEpoch &+= 1
         pendingAudio = nil
         pendingDisplay = nil
@@ -217,7 +218,7 @@ final class ControlCenterModel: ObservableObject {
                 case .cancelled: completion?(false)
                 }
             }
-        case .disabled: return false
+        default: return false
         }
         return true
     }
@@ -654,9 +655,22 @@ struct ContentView: View {
                     Divider()
                     ZoneEditor(title: "Right edge", action: $settings.rightZoneAction, width: $settings.rightZoneWidth, selected: selectedZone == "right")
                 }
+                Text("Choose from \(ZoneAction.allCases.count - 1) actions on either edge. Direction notes use Up/Down; horizontal top edges use Right/Left. Reverse swipe direction reverses both.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            if [settings.leftZoneAction, settings.rightZoneAction, settings.topLeftAction, settings.topRightAction, settings.topEdgeAction].contains(.customShortcut) {
+                SettingsSection("Custom swipe shortcuts") {
+                    SettingsCard {
+                        HotkeyRecorder(hotkey: $settings.swipeUpShortcut, title: "Up / right swipe", detail: "Sent once after an intentional swipe.", showsRegistrationError: false)
+                        Divider()
+                        HotkeyRecorder(hotkey: $settings.swipeDownShortcut, title: "Down / left swipe", detail: "Sent once after an intentional swipe.", showsRegistrationError: false)
+                    }
+                    Text("This pair is shared by edges set to Custom shortcuts. It follows the frontmost app, and is not a globally registered hotkey. Configure your target app or macOS shortcut first. Avoid destructive commands.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
             }
             SettingsCard {
-                LabeledSlider("Sensitivity", detail: "How quickly a swipe changes the level.", value: $settings.sensitivity, range: 0.3...3, display: String(format: "%.1f×", settings.sensitivity))
+                LabeledSlider("Sensitivity", detail: "How quickly levels change or repeatable actions step.", value: $settings.sensitivity, range: 0.3...3, display: String(format: "%.1f×", settings.sensitivity))
                 Divider()
                 ToggleRow("Reverse swipe direction", detail: settings.invertScrollDirection ? "Down increases. Up decreases." : "Up increases. Down decreases.", value: $settings.invertScrollDirection)
                 Divider()
@@ -709,7 +723,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(telemetry.isTesting ? "Test running" : "Safe test")
                         .font(.system(size: 14, weight: .semibold))
-                    Text("Volume, brightness, and pointer stay unchanged.")
+                    Text("All actions are disabled during testing. No device changes or shortcuts are sent.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -1282,10 +1296,105 @@ private struct LabeledSlider: View {
 private struct ActionPicker: View {
     @Binding var action: ZoneAction
     let label: String
+    @State private var showsLibrary = false
     var body: some View {
-        Picker(label, selection: $action) {
-            ForEach(ZoneAction.allCases) { item in Label(item.label, systemImage: item.icon).tag(item) }
-        }.frame(width: 145)
+        Button { showsLibrary = true } label: {
+            HStack(spacing: 7) {
+                Text(action.label).lineLimit(1)
+                Spacer(minLength: 2)
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold))
+            }.frame(width: 160)
+        }.buttonStyle(.bordered).accessibilityLabel("\(label): \(action.label)")
+            .help("Choose an edge action")
+            .sheet(isPresented: $showsLibrary) { EdgeActionLibrary(action: $action, edgeName: label) }
+    }
+}
+
+struct EdgeActionLibrary: View {
+    @Binding var action: ZoneAction
+    let edgeName: String
+    var preview = false
+    @Environment(\.dismiss) private var dismiss
+    @State private var search = ""
+    @State private var unavailable: [ZoneAction: String] = [:]
+    private var matching: [ZoneAction] {
+        ZoneAction.allCases.filter { item in
+            search.split(whereSeparator: \.isWhitespace).allSatisfy {
+                "\(item.label) \(item.category) \(item.guidance)".localizedCaseInsensitiveContains(String($0))
+            }
+        }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Choose an action").font(.system(size: 23, weight: .semibold))
+                    Text(edgeName).font(.system(size: 13)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+            }
+            TextField("Search actions, apps, or controls", text: $search).textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Search edge actions")
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    if matching.isEmpty {
+                        Text("No matching actions. Try microphone, tabs, zoom, or shortcuts.")
+                            .foregroundStyle(.secondary).padding(.vertical, 30)
+                    }
+                    ForEach(ZoneAction.categories, id: \.self) { category in
+                        let items = matching.filter { $0.category == category }
+                        if !items.isEmpty {
+                            Text(category).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                            VStack(spacing: 0) {
+                                ForEach(items) { item in
+                                    Button {
+                                        action = item
+                                        dismiss()
+                                    } label: {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Image(systemName: item.icon).font(.system(size: 17)).frame(width: 24).padding(.top, 2)
+                                            VStack(alignment: .leading, spacing: 5) {
+                                                Text(item.label).font(.system(size: 14, weight: .medium))
+                                                Text(unavailable[item] ?? item.guidance).font(.system(size: 12)).foregroundStyle(.secondary)
+                                                    .fixedSize(horizontal: false, vertical: true)
+                                            }
+                                            Spacer(minLength: 0)
+                                            if action == item { Image(systemName: "checkmark.circle.fill").accessibilityLabel("Selected") }
+                                            else if unavailable[item] != nil { Image(systemName: "exclamationmark.circle").foregroundStyle(.secondary) }
+                                        }.padding(13).frame(maxWidth: .infinity, alignment: .leading)
+                                            .background(action == item ? Color.primary.opacity(0.07) : .clear)
+                                            .contentShape(Rectangle())
+                                    }.buttonStyle(.plain).disabled(unavailable[item] != nil)
+                                    if item != items.last { Divider().padding(.leading, 49) }
+                                }
+                            }.background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 12))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                }.padding(.trailing, 5)
+            }
+            Text("App actions use standard macOS shortcuts. Availability depends on the active app, keyboard layout, and your shortcut settings. One-shot actions require lifting before they can run again.")
+                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }.padding(24).frame(width: 590, height: 600)
+            .onAppear {
+                guard !preview else { return }
+                VolumeController.microphone.refresh()
+                KeyboardBacklightCapability.shared.refresh()
+                refreshAvailability()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .swayInputStateChanged)) { _ in refreshAvailability() }
+            .onReceive(NotificationCenter.default.publisher(for: .swayAudioStateChanged)) { _ in refreshAvailability() }
+            .onReceive(NotificationCenter.default.publisher(for: .swayKeyboardCapabilityChanged)) { _ in refreshAvailability() }
+    }
+    private func refreshAvailability() {
+        guard !preview else { return }
+        var next: [ZoneAction: String] = [:]
+        if !VolumeController.microphone.isAvailable { next[.microphoneLevel] = "The current input has no writable gain control. Select a compatible input in macOS Sound settings." }
+        if !VolumeController.microphone.supportsMute { next[.microphoneMute] = "The current input has no verified hardware mute control. Sway never substitutes gain zero or claims to mute other microphones." }
+        if !VolumeController.shared.supportsMute { next[.outputMute] = "The current output has no hardware mute control. Volume remains available on compatible outputs." }
+        if !KeyboardBacklightCapability.shared.isAvailable { next[.keyboardBrightness] = KeyboardBacklightCapability.shared.checked ? "No supported backlit keyboard detected. This uses a private read-only capability API that can change with macOS." : "Checking keyboard support…" }
+        unavailable = next
     }
 }
 
@@ -1301,6 +1410,7 @@ private struct ZoneEditor: View {
                 Spacer()
                 ActionPicker(action: $action, label: "\(title) action").labelsHidden()
             }
+            Text(action.guidance).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             EdgeWidthSlider(title: "\(title) width", value: $width, range: TrackpadSettings.sideZoneWidthRange)
         }.padding(14).background(selected ? action.tint.opacity(0.045) : .clear)
     }
@@ -1375,6 +1485,9 @@ private struct EvidenceMetric: View {
 
 private struct HotkeyRecorder: View {
     @Binding var hotkey: HotkeyCombo
+    var title = "Pause / resume shortcut"
+    var detail = "Works while any app is active."
+    var showsRegistrationError = true
     @ObservedObject private var manager = HotkeyManager.shared
     @State private var recording = false
     @State private var eventMonitor: Any?
@@ -1383,8 +1496,8 @@ private struct HotkeyRecorder: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Pause / resume shortcut").font(.system(size: 14, weight: .medium))
-                    Text(recording ? "Press a shortcut. Escape cancels." : "Works while any app is active.")
+                    Text(title).font(.system(size: 14, weight: .medium))
+                    Text(recording ? "Press a shortcut. Escape cancels." : detail)
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -1396,7 +1509,7 @@ private struct HotkeyRecorder: View {
                         .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Clear shortcut")
                 }
             }
-            if let message = hint ?? manager.registrationError {
+            if let message = hint ?? (showsRegistrationError ? manager.registrationError : nil) {
                 Text(message).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }.padding(14).onDisappear(perform: stop)

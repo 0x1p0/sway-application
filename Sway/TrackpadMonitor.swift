@@ -18,6 +18,8 @@ final class TrackpadMonitor: ObservableObject {
     private var activeValue: RelativeGestureValue?
     private var activeAction: ZoneAction = .disabled
     private var activeTarget: String?
+    private var activeApplication: pid_t?
+    private var commandStepper = GestureActionStepper()
     private var haptics = GestureHapticFeedback()
     private var lastFrameTime = 0.0
     private var cursorFreezeActive = false
@@ -48,6 +50,9 @@ final class TrackpadMonitor: ObservableObject {
     func start() {
         guard settings.isEnabled else { statusMessage = "Paused"; return }
         guard !isRunning else { return }
+        let actions = [settings.leftZoneAction, settings.rightZoneAction, settings.topLeftAction, settings.topRightAction, settings.topEdgeAction]
+        if actions.contains(.keyboardBrightness) { KeyboardBacklightCapability.shared.refresh() }
+        if actions.contains(.microphoneLevel) || actions.contains(.microphoneMute) { VolumeController.microphone.refresh() }
         guard AXIsProcessTrusted() else {
             statusMessage = "Accessibility permission needed"
             return
@@ -259,6 +264,8 @@ final class TrackpadMonitor: ObservableObject {
         }
         outputRevision &+= 1
         activeAction = action
+        activeApplication = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        commandStepper = GestureActionStepper()
         outputScope = UUID()
         activeTarget = target
         activeValue = RelativeGestureValue(value: Double(value))
@@ -286,8 +293,9 @@ final class TrackpadMonitor: ObservableObject {
         if cancelPending && (activeAction != .disabled || !pendingOutputs.isEmpty) {
             outputRevision &+= 1
             for (scope, output) in pendingOutputs {
-                if output.action == .volume { VolumeController.shared.cancelPendingRequests(in: scope) }
-                else { BrightnessController.shared.cancelPendingRequests(in: scope) }
+                if output.action == .volume || output.action == .outputMute { VolumeController.shared.cancelPendingRequests(in: scope) }
+                else if output.action == .microphoneLevel || output.action == .microphoneMute { VolumeController.microphone.cancelPendingRequests(in: scope) }
+                else if output.action == .brightness { BrightnessController.shared.cancelPendingRequests(in: scope) }
             }
             pendingOutputs.removeAll(keepingCapacity: true)
         }
@@ -297,6 +305,8 @@ final class TrackpadMonitor: ObservableObject {
         activeAction = .disabled
         outputScope = nil
         activeTarget = nil
+        activeApplication = nil
+        commandStepper = GestureActionStepper()
         haptics.end()
         if cursorFreezeActive {
             cursorFreezeActive = false
@@ -313,12 +323,16 @@ final class TrackpadMonitor: ObservableObject {
             cancelCurrentGesture(reason: "The output device changed. Lift your fingers to reset.")
             return
         }
+        if !activeAction.isContinuous {
+            applyCommand(delta: delta, region: region, scope: scope)
+            return
+        }
         let limits: ClosedRange<Double>
         if activeAction == .volume {
             limits = min(settings.volumeMin, settings.volumeMax)...max(settings.volumeMin, settings.volumeMax)
-        } else {
+        } else if activeAction == .brightness {
             limits = min(settings.brightnessMin, settings.brightnessMax)...max(settings.brightnessMin, settings.brightnessMax)
-        }
+        } else { limits = 0...1 }
         let previous = value.value
         let requested = value.apply(delta: delta, sensitivity: settings.sensitivity,
                                     inverted: settings.invertScrollDirection, bounds: limits)
@@ -333,16 +347,18 @@ final class TrackpadMonitor: ObservableObject {
         let target = activeTarget
         if pendingOutputs[scope] == nil { pendingOutputs[scope] = PendingOutput(action: activeAction, count: 0) }
         pendingOutputs[scope]?.count += 1
-        if activeAction == .volume {
-            VolumeController.shared.requestVolume(Float(requested), muteAtZero: settings.muteAtZero,
+        if activeAction == .volume || activeAction == .microphoneLevel {
+            let action = activeAction
+            let audio = action == .volume ? VolumeController.shared : VolumeController.microphone
+            audio.requestVolume(Float(requested), muteAtZero: action == .volume && settings.muteAtZero,
                                                    expectedTargetIdentifier: target, cancellationScope: scope) { [weak self] result in
                 guard let self else { return }
                 defer { self.outputFinished(in: scope) }
                 guard self.outputRevision == revision else { return }
                 switch result {
                 case let .applied(measured, _, appliedTarget):
-                    guard appliedTarget == target, appliedTarget == self.targetIdentifier(.volume) else { return }
-                    self.publishAdjustment(measured, action: .volume, region: region)
+                    guard appliedTarget == target, appliedTarget == self.targetIdentifier(action) else { return }
+                    self.publishAdjustment(measured, action: action, region: region)
                 case .failed:
                     self.cancelCurrentGesture(reason: "The device did not accept this adjustment.")
                 case .cancelled: break
@@ -366,6 +382,47 @@ final class TrackpadMonitor: ObservableObject {
         }
     }
 
+    private func applyCommand(delta: Double, region: GestureRegion, scope: UUID) {
+        guard let application = activeApplication,
+              NSWorkspace.shared.frontmostApplication?.processIdentifier == application else {
+            cancelCurrentGesture(reason: "The active app changed. Lift your fingers before sending another action.")
+            return
+        }
+        guard let increasing = commandStepper.consume(delta: delta, sensitivity: settings.sensitivity,
+            inverted: settings.invertScrollDirection, repeats: activeAction.repeatsWhileSwiping,
+            at: ProcessInfo.processInfo.systemUptime) else { return }
+        let action = activeAction
+        if action == .outputMute || action == .microphoneMute {
+            let controller = action == .outputMute ? VolumeController.shared : VolumeController.microphone
+            let revision = outputRevision
+            let target = activeTarget
+            pendingOutputs[scope] = PendingOutput(action: action, count: 1)
+            controller.requestMuted(!increasing, expectedTargetIdentifier: target, cancellationScope: scope) { [weak self] result in
+                guard let self else { return }
+                defer { self.outputFinished(in: scope) }
+                guard self.outputRevision == revision else { return }
+                switch result {
+                case let .applied(value, muted, identifier):
+                    guard target == identifier, identifier == controller.targetIdentifier else { return }
+                    if action == .outputMute { self.publishAdjustment(muted ? 0 : value, action: .volume, region: region) }
+                    else {
+                        NotificationCenter.default.post(name: .microphoneMuteChanged, object: muted)
+                    }
+                case .failed: self.cancelCurrentGesture(reason: "The device did not confirm the mute change. Check its controls.")
+                case .cancelled: break
+                }
+            }
+            return
+        }
+        let custom = increasing ? settings.swipeUpShortcut : settings.swipeDownShortcut
+        guard let command = EdgeCommand.resolve(action, increasing: increasing, custom: custom),
+              EdgeActionController.send(command, expectedApplication: application) else {
+            cancelCurrentGesture(reason: "This action is not configured or could not be sent. Check its settings.")
+            return
+        }
+        if settings.hapticFeedback { HapticOutput.shared.play(settings.hapticStyle) }
+    }
+
     private func outputFinished(in scope: UUID) {
         guard let pending = pendingOutputs[scope] else { return }
         if pending.count <= 1 { pendingOutputs[scope] = nil }
@@ -375,6 +432,7 @@ final class TrackpadMonitor: ObservableObject {
     private func publishAdjustment(_ measured: Float, action: ZoneAction, region: GestureRegion) {
         let name: Notification.Name
         if action == .volume { name = region.isTop ? .topEdgeVolumeChanged : .volumeChanged }
+        else if action == .microphoneLevel { name = .microphoneLevelChanged }
         else { name = region.isTop ? .topEdgeBrightnessChanged : .brightnessChanged }
         let side = region == .left || region == .topLeft ? "left" : "right"
         NotificationCenter.default.post(name: name, object: measured,
@@ -397,16 +455,33 @@ final class TrackpadMonitor: ObservableObject {
         switch action {
         case .volume: return VolumeController.shared.isAvailable
         case .brightness: return BrightnessController.shared.isAvailable
+        case .microphoneLevel: return VolumeController.microphone.isAvailable
+        case .outputMute: return VolumeController.shared.supportsMute
+        case .microphoneMute: return VolumeController.microphone.supportsMute
+        case .keyboardBrightness: return KeyboardBacklightCapability.shared.isAvailable
+        case .customShortcut: return !settings.swipeUpShortcut.isEmpty || !settings.swipeDownShortcut.isEmpty
         case .disabled: return false
+        default: return NSWorkspace.shared.frontmostApplication != nil
         }
     }
 
     private func currentValue(_ action: ZoneAction) -> Float {
-        action == .volume ? VolumeController.shared.getVolume() : BrightnessController.shared.getBrightness()
+        switch action {
+        case .volume: return VolumeController.shared.getVolume()
+        case .brightness: return BrightnessController.shared.getBrightness()
+        case .microphoneLevel: return VolumeController.microphone.getVolume()
+        default: return 0.5
+        }
     }
 
     private func targetIdentifier(_ action: ZoneAction) -> String? {
-        action == .volume ? VolumeController.shared.targetIdentifier : BrightnessController.shared.targetIdentifier
+        switch action {
+        case .volume, .outputMute: return VolumeController.shared.targetIdentifier
+        case .brightness: return BrightnessController.shared.targetIdentifier
+        case .microphoneLevel, .microphoneMute: return VolumeController.microphone.targetIdentifier
+        case .disabled: return nil
+        default: return NSWorkspace.shared.frontmostApplication.map { "app:\($0.processIdentifier)" }
+        }
     }
 
     private func haptic(at value: Float) {
@@ -414,8 +489,8 @@ final class TrackpadMonitor: ObservableObject {
         let now = ProcessInfo.processInfo.systemUptime
         guard !GestureTelemetry.shared.isTesting, recognizer.decision.phase == .accepted,
               now - lastFrameTime <= 0.12 else { return }
-        let lower = activeAction == .volume ? settings.volumeMin : settings.brightnessMin
-        let upper = activeAction == .volume ? settings.volumeMax : settings.brightnessMax
+        let lower = activeAction == .volume ? settings.volumeMin : activeAction == .brightness ? settings.brightnessMin : 0
+        let upper = activeAction == .volume ? settings.volumeMax : activeAction == .brightness ? settings.brightnessMax : 1
         if let style = haptics.update(value: Double(value), bounds: min(lower, upper)...max(lower, upper), at: now) {
             HapticOutput.shared.play(style)
         }
@@ -468,6 +543,7 @@ final class TrackpadMonitor: ObservableObject {
         }
         let now = ProcessInfo.processInfo.systemUptime
         if type == .keyDown {
+            if event.getIntegerValueField(.eventSourceUserData) == EdgeActionController.eventMarker { return pass }
             let decision = recognizer.keyDown(at: now)
             GestureTelemetry.shared.publish(decision, at: now, force: true)
             finishAdjustment()
@@ -515,6 +591,8 @@ extension Notification.Name {
     static let swayGestureBegan = Notification.Name("swayGestureBegan")
     static let volumeChanged = Notification.Name("volumeChanged")
     static let brightnessChanged = Notification.Name("brightnessChanged")
+    static let microphoneLevelChanged = Notification.Name("microphoneLevelChanged")
+    static let microphoneMuteChanged = Notification.Name("microphoneMuteChanged")
     static let topEdgeVolumeChanged = Notification.Name("topEdgeVolumeChanged")
     static let topEdgeBrightnessChanged = Notification.Name("topEdgeBrightnessChanged")
 }

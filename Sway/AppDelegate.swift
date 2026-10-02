@@ -123,14 +123,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
         // Only measured, intentional adjustments show an indicator. External
         // hardware notifications update readouts without opening an overlay.
-        for name in [Notification.Name.volumeChanged, .brightnessChanged, .topEdgeVolumeChanged, .topEdgeBrightnessChanged] {
+        for name in [Notification.Name.volumeChanged, .brightnessChanged, .topEdgeVolumeChanged, .topEdgeBrightnessChanged, .microphoneLevelChanged] {
             NotificationCenter.default.publisher(for: name)
                 .sink { note in
                     guard let value = note.object as? Float, value.isFinite else { return }
-                    let type: OSDType = name == .volumeChanged || name == .topEdgeVolumeChanged ? .volume : .brightness
+                    let type: OSDType = name == .microphoneLevelChanged ? .microphone : name == .volumeChanged || name == .topEdgeVolumeChanged ? .volume : .brightness
                     OSDOverlay.shared.show(type: type, value: value)
                 }.store(in: &cancellables)
         }
+        NotificationCenter.default.publisher(for: .microphoneMuteChanged).sink { note in
+            guard let muted = note.object as? Bool else { return }
+            OSDOverlay.shared.show(type: .microphoneMute, value: muted ? 1 : 0)
+        }.store(in: &cancellables)
 
         let workspace = NSWorkspace.shared.notificationCenter
         workspace.publisher(for: NSWorkspace.didWakeNotification)

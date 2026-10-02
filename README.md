@@ -90,6 +90,55 @@ touch frames before choosing ownership at the actual scroll start, using
 
 ## A small menu, a separate settings window
 
+### Expanded edge actions (current source)
+
+The current source adds **26 assignable actions, plus Off**. These changes are
+not yet included in the v1.0.14 download. Open **Settings → Gestures**, then click
+either edge’s action button to browse or search the categorized action library.
+Both side edges and the optional top edges use the same library. Existing
+brightness/volume assignments stay unchanged when upgrading.
+
+| Category | Actions |
+| --- | --- |
+| Display & keyboard | Built-in display brightness; keyboard backlight |
+| Audio & microphone | Output volume; input gain; speaker mute; microphone hardware mute |
+| Media | Previous/next track; play/pause |
+| Navigation | Tabs; back/forward; app zoom; page up/down; document start/end |
+| Windows & desktops | Switch desktops; Mission Control; App Exposé; show desktop; switch apps; cycle app windows; full screen; minimize window; hide app |
+| Tools & shortcuts | Spotlight; screenshot toolbar; Emoji & Symbols; custom up/down shortcuts |
+
+Each option explains its directions and requirements. For horizontal top-edge
+swipes, right corresponds to up and left corresponds to down. Reverse direction
+applies to both levels and commands. Keyboard lighting, tabs, zoom, pages, and
+window cycling step as you move, with distance thresholds and rate limiting;
+other commands fire once until all fingers lift. No command backlog or idle
+repeat timer is created. Commands stop if the foreground app changes. Safe test
+mode never executes an action, changes hardware, or sends a shortcut.
+
+**Microphone controls are not a universal privacy switch.** Gain and hardware
+mute affect only macOS’s current default input, not other devices or an app’s
+own mute state. Sway never opens a recording stream. Raising or lowering input
+gain never unmutes the device. Hardware mute is offered only if the driver
+provides a readable, writable mute control, and feedback follows readback.
+Unsupported devices are clearly marked; gain zero is never called “muted.”
+Device changes cancel pending adjustments instead of retargeting them.
+
+Keyboard lighting uses the native illumination media keys; a read-only private
+CoreBrightness capability check hides it when no backlit keyboard is detected.
+macOS version, hardware, or ambient-light policy can still prevent changes.
+Media keys go to the active media app. Navigation/window tools use standard
+macOS shortcuts; apps, keyboard layouts, and remapped/disabled shortcuts can
+change their behavior. Sway does not claim the destination app completed an
+unacknowledged key request. Screenshot tools open the native toolbar; Sway
+does not capture the screen itself.
+
+For an app-specific command, choose **Custom shortcuts** and record the up/right
+and down/left combinations in the section that appears below the edge controls.
+The pair is shared by edges assigned to Custom shortcuts; these are sent key
+combinations, not globally registered hotkeys. Configure the target shortcut
+first and avoid destructive commands. The menu bar stays compact; browsing the
+larger action library happens in Settings.
+
 The menu bar panel is for frequent adjustments, not a dashboard. Advanced configuration and live contact evidence are kept in the settings window:
 
 Use **Find a setting** to filter categories by words such as typing, haptics, login, or updates. The setup guide is always available at the bottom of the sidebar.

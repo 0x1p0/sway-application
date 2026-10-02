@@ -98,12 +98,98 @@ private final class ModelFixture {
         expect(condition(), message)
     }
     static func main() {
+        if CommandLine.arguments.contains("--probe-action-capabilities") {
+            // Explicit read-only probe. Normal CI below uses fake hardware only.
+            let input = VolumeController.microphone
+            input.flushWorkerForTesting()
+            let keyboard = KeyboardBacklightCapability.shared
+            waitFor("keyboard capability discovery") { keyboard.checked }
+            print("Read-only capabilities: keyboard backlight=\(keyboard.isAvailable), input gain=\(input.isAvailable), input hardware mute=\(input.supportsMute). No device writes or audio recording.")
+            return
+        }
         testRapidMute()
         testOptimisticDrag()
         testExternalAndFailures()
         testAtomicUndoAndRouteGuard()
         testVisibilityAndPreview()
+        testActionLibrary()
+        testMicrophoneSafety()
         print("\(checks) control model regression checks passed (fake audio/display hardware only).")
+    }
+
+    static func testActionLibrary() {
+        expect(EdgeActionController.canDispatch(hasAccess: true, testing: false, expectedApplication: 42, currentApplication: 42), "commands need a live matching app")
+        expect(!EdgeActionController.canDispatch(hasAccess: false, testing: false, expectedApplication: 42, currentApplication: 42), "no command without Accessibility")
+        expect(!EdgeActionController.canDispatch(hasAccess: true, testing: true, expectedApplication: 42, currentApplication: 42), "safe test blocks command dispatch")
+        expect(!EdgeActionController.canDispatch(hasAccess: true, testing: false, expectedApplication: 42, currentApplication: 99), "app switch cancels command dispatch")
+        expect(!EdgeActionController.canDispatch(hasAccess: true, testing: false, expectedApplication: 42, currentApplication: nil), "missing foreground app cancels dispatch")
+        let events = EdgeActionController.keyboardEvents(code: 48, flags: CGEventFlags.maskCommand.rawValue, physicalFlags: [])!
+        expect(events.count == 3 && events[0].type == .keyDown && events[1].type == .keyUp, "paired key events are constructed without posting")
+        expect(events[2].type == .flagsChanged && events[2].flags.isEmpty, "Command-Tab explicitly releases its synthetic modifier")
+        expect(events.allSatisfy { $0.getIntegerValueField(.eventSourceUserData) == EdgeActionController.eventMarker }, "own events never count as typing")
+        let held = EdgeActionController.keyboardEvents(code: 48, flags: CGEventFlags.maskCommand.rawValue, physicalFlags: .maskCommand)!
+        expect(held.count == 2, "physically held modifiers are not synthetically released")
+        expect(ZoneAction.allCases.count == 27, "26 assignable actions plus Off")
+        for action in ZoneAction.allCases {
+            expect(!action.label.isEmpty && !action.icon.isEmpty && !action.guidance.isEmpty, "every action has usable metadata")
+            expect(ZoneAction.categories.contains(action.category), "all actions appear in a category")
+            if !action.isContinuous && ![.outputMute, .microphoneMute, .customShortcut, .disabled].contains(action) {
+                expect(EdgeCommand.resolve(action, increasing: true) != nil && EdgeCommand.resolve(action, increasing: false) != nil,
+                       "both directions resolve for \(action.rawValue)")
+            }
+        }
+        expect(EdgeCommand.resolve(.keyboardBrightness, increasing: true) == .media(21), "keyboard up maps to illumination key")
+        expect(EdgeCommand.resolve(.keyboardBrightness, increasing: false) == .media(22), "keyboard down maps to illumination key")
+        expect(EdgeCommand.resolve(.mediaTracks, increasing: true) == .media(17), "next track key")
+        expect(EdgeCommand.resolve(.mediaTracks, increasing: false) == .media(18), "previous track key")
+        expect(EdgeCommand.resolve(.playPause, increasing: false) == .media(16), "media toggle key")
+        expect(EdgeCommand.resolve(.customShortcut, increasing: true) == nil, "empty custom shortcut cannot dispatch")
+        expect(EdgeCommand.resolve(.customShortcut, increasing: true, custom: HotkeyCombo(keyCode: 300, modifiers: 256)) == nil, "invalid virtual key rejected")
+        expect(EdgeCommand.resolve(.customShortcut, increasing: true, custom: HotkeyCombo(keyCode: 12, modifiers: 0)) == nil, "unmodified custom key rejected")
+        var oneShot = GestureActionStepper()
+        expect(oneShot.consume(delta: 0.01, sensitivity: 1, inverted: false, repeats: false, at: 1) == nil, "short motion does not trigger")
+        expect(oneShot.consume(delta: 0.016, sensitivity: 1, inverted: false, repeats: false, at: 1.1) == true, "deliberate motion sends up")
+        for index in 0..<100 {
+            expect(oneShot.consume(delta: index % 2 == 0 ? -0.1 : 0.1, sensitivity: 1, inverted: false, repeats: false, at: Double(index + 2)) == nil,
+                   "one-shot cannot repeat or reverse before lift")
+        }
+        var steps = GestureActionStepper()
+        expect(steps.consume(delta: 0.03, sensitivity: 1, inverted: false, repeats: true, at: 1) == true, "repeatable action begins")
+        expect(steps.consume(delta: 0.08, sensitivity: 1, inverted: false, repeats: true, at: 1.05) == nil, "fast events are dropped")
+        expect(steps.consume(delta: 0.001, sensitivity: 1, inverted: false, repeats: true, at: 2) == nil, "dropped motion is not replayed")
+        expect(steps.consume(delta: -0.04, sensitivity: 1, inverted: false, repeats: true, at: 3) == nil, "reversal starts fresh travel")
+        expect(steps.consume(delta: -0.04, sensitivity: 1, inverted: false, repeats: true, at: 3.3) == false, "negative travel fires once")
+        var inverted = GestureActionStepper()
+        expect(inverted.consume(delta: 0.03, sensitivity: 1, inverted: true, repeats: false, at: 1) == false, "reversed direction works for commands")
+        for invalid in [Double.nan, .infinity, 0.5] {
+            var gate = GestureActionStepper()
+            expect(gate.consume(delta: invalid, sensitivity: 1, inverted: false, repeats: true, at: 1) == nil, "invalid jumps rejected")
+        }
+        let fixture = ModelFixture()
+        fixture.model.captureUndo(.volume)
+        fixture.model.captureUndo(.microphoneLevel)
+        expect(fixture.model.undoValues?.action == .volume, "new actions never capture a bogus brightness undo")
+        expect(!fixture.model.adjust(.microphoneLevel, to: 0.8), "legacy slider rejects non-slider actions")
+    }
+
+    static func testMicrophoneSafety() {
+        let backend = ModelAudioBackend()
+        backend.muted = true
+        let input = VolumeController(backend: backend, notification: .swayInputStateChanged, preservesMuteOnGain: true)
+        input.flushWorkerForTesting()
+        var result: VolumeRequestResult?
+        input.requestVolume(0.7, muteAtZero: false) { result = $0 }
+        waitFor("input gain completes") { result != nil }
+        expect(backend.locked { backend.muted && backend.scalar == 0.7 }, "microphone gain never clears hardware mute")
+        expect(backend.locked { backend.operations } == ["volume"], "no mute writes from microphone gain")
+        result = nil
+        input.requestMuted(false) { result = $0 }
+        waitFor("explicit unmute completes") { result != nil }
+        expect(!backend.locked { backend.muted }, "explicit microphone unmute still works")
+        result = nil
+        input.requestVolume(0, muteAtZero: true) { result = $0 }
+        waitFor("zero input gain completes") { result != nil }
+        expect(!backend.locked { backend.muted }, "zero input gain never masquerades as microphone mute")
     }
 
     static func testRapidMute() {

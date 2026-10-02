@@ -15,6 +15,7 @@ final class OSDOverlay {
     private var lastDisplayTime: TimeInterval = 0
     private var pendingValue: (OSDType, Double)?
     private var configuration: OSDConfiguration
+    private var compactStatus = false
     private var subscriptions = Set<AnyCancellable>()
 
     private init() {
@@ -42,6 +43,7 @@ final class OSDOverlay {
     }
 
     private func present(type: OSDType, value: Double) {
+        compactStatus = type == .microphoneMute
         refreshConfiguration()
         guard configuration.style != "off" else { return }
         let now = ProcessInfo.processInfo.systemUptime
@@ -128,7 +130,7 @@ final class OSDOverlay {
     }
 
     private func refreshConfiguration() {
-        let updated = OSDConfiguration(settings: settings)
+        let updated = OSDConfiguration(settings: settings, compactStatus: compactStatus)
         guard updated != configuration else { return }
         configuration = updated
         if configuration.style == "off" { dismiss() }
@@ -181,9 +183,9 @@ private struct OSDConfiguration: Equatable {
     let width: Double
     let position: OSDPosition
     let appearanceMode: String
-    init(settings: TrackpadSettings) {
-        style = settings.osdStyle
-        width = settings.osdHorizontalWidth
+    init(settings: TrackpadSettings, compactStatus: Bool = false) {
+        style = compactStatus && settings.osdStyle != "off" ? "horizontal" : settings.osdStyle
+        width = compactStatus ? 240 : settings.osdHorizontalWidth
         position = settings.osdPosition
         appearanceMode = settings.appearanceMode
     }
@@ -219,9 +221,23 @@ final class OSDWindow: NSWindow {
 }
 
 enum OSDType: Equatable {
-    case volume, brightness
-    var icon: String { self == .volume ? "speaker.wave.2.fill" : "sun.max.fill" }
-    var label: String { self == .volume ? "Volume" : "Brightness" }
+    case volume, brightness, microphone, microphoneMute
+    var icon: String {
+        switch self {
+        case .volume: return "speaker.wave.2.fill"
+        case .brightness: return "sun.max.fill"
+        case .microphone: return "mic.fill"
+        case .microphoneMute: return "mic.slash.fill"
+        }
+    }
+    var label: String {
+        switch self {
+        case .volume: return "Volume"
+        case .brightness: return "Brightness"
+        case .microphone: return "Microphone input level"
+        case .microphoneMute: return "Default microphone mute"
+        }
+    }
 }
 
 /// Shared by production and safe fixtures. Apple's supported `contentView`
@@ -337,8 +353,11 @@ final class OSDContentView: NSView {
         self.type = type
         self.value = clipped
         if iconChanged { refreshIcon() }
-        let text = "\(Int((clipped * 100).rounded()))"
+        let text = type == .microphoneMute ? (clipped == 0 ? "Microphone unmuted" : "Microphone muted") : "\(Int((clipped * 100).rounded()))"
+        track.isHidden = type == .microphoneMute
+        fill.isHidden = type == .microphoneMute
         if percentage.stringValue != text { percentage.stringValue = text }
+        if iconChanged { needsLayout = true }
         updateFill()
         updateAccessibility()
     }
@@ -349,6 +368,7 @@ final class OSDContentView: NSView {
         if isHorizontal {
             icon.frame = NSRect(x: 15, y: (bounds.height - 20) / 2, width: 20, height: 20)
             percentage.frame = NSRect(x: bounds.width - 43, y: (bounds.height - 16) / 2, width: 28, height: 16)
+            if type == .microphoneMute { percentage.frame = NSRect(x: 45, y: (bounds.height - 16) / 2, width: bounds.width - 60, height: 16) }
             trackFrame = NSRect(x: 46, y: (bounds.height - 6) / 2, width: max(0, bounds.width - 100), height: 6)
         } else {
             icon.frame = NSRect(x: (bounds.width - 20) / 2, y: bounds.height - 35, width: 20, height: 20)
@@ -369,7 +389,7 @@ final class OSDContentView: NSView {
         withoutAnimation { fill.frame = frame }
     }
     private func refreshIcon() {
-        let name = type == .volume && value == 0 ? "speaker.slash.fill" : type.icon
+        let name = type == .volume && value == 0 ? "speaker.slash.fill" : type == .microphoneMute && value == 0 ? "mic.fill" : type.icon
         icon.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 16, weight: .medium))
     }
@@ -383,7 +403,7 @@ final class OSDContentView: NSView {
     }
     private func updateAccessibility() {
         setAccessibilityLabel(type.label)
-        setAccessibilityValue("\(Int((value * 100).rounded())) percent")
+        setAccessibilityValue(type == .microphoneMute ? (value == 0 ? "Mute off" : "Mute on") : "\(Int((value * 100).rounded())) percent")
     }
     private func withoutAnimation(_ action: () -> Void) {
         CATransaction.begin()

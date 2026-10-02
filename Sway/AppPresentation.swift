@@ -42,7 +42,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     }
     private var keywords: String {
         switch self {
-        case .gestures: return "preset finger fingers one two edge zones width narrow sensitivity direction top left right swipe reverse"
+        case .gestures: return "preset finger fingers one two edge zones width narrow sensitivity direction top left right swipe reverse action volume brightness microphone keyboard backlight media playback track tab navigation zoom window desktop workspace shortcut screenshot emoji spotlight mute"
         case .protection: return "palm rejection strict balanced typing cooldown activation distance test diagnostics permission accessibility"
         case .levels: return "volume brightness audio display minimum maximum limit mute zero"
         case .feedback: return "haptic feedback soft standard crisp tap vibration strength spacing steps preview"

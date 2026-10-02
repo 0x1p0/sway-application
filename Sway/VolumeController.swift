@@ -4,6 +4,7 @@ import CoreAudio
 extension Notification.Name {
     /// Measured state changed on main. External changes never request an OSD.
     static let swayAudioStateChanged = Notification.Name("swayAudioStateChanged")
+    static let swayInputStateChanged = Notification.Name("swayInputStateChanged")
 }
 
 enum VolumeRequestResult {
@@ -57,6 +58,11 @@ private struct AudioOutputSnapshot: Equatable {
 /// No polling, no discovery or driver calls from public snapshot getters.
 final class VolumeController {
     static let shared = VolumeController(backend: CoreAudioOutputBackend())
+    // Gain/mute only: no input stream is opened and no audio is captured.
+    static let microphone = VolumeController(backend: CoreAudioOutputBackend(input: true),
+                                             notification: .swayInputStateChanged, preservesMuteOnGain: true)
+    private let notification: Notification.Name
+    private let preservesMuteOnGain: Bool
     private let backend: AudioOutputBackend
     private let worker = DispatchQueue(label: "com.sway.audio-output", qos: .userInteractive)
     private let stateLock = NSLock()
@@ -88,8 +94,11 @@ final class VolumeController {
     private var cancelledScopes = Set<UUID>()
 
     /// Startup discovery is off main; listeners deliver the first snapshot.
-    init(backend: AudioOutputBackend) {
+    init(backend: AudioOutputBackend, notification: Notification.Name = .swayAudioStateChanged,
+         preservesMuteOnGain: Bool = false) {
         self.backend = backend
+        self.notification = notification
+        self.preservesMuteOnGain = preservesMuteOnGain
         worker.async { [weak self] in
             guard let self else { return }
             self.backend.start(on: self.worker) { [weak self] event in
@@ -145,9 +154,9 @@ final class VolumeController {
                 target: expectedTargetIdentifier ?? targetIdentifier, scope: cancellationScope, completion: completion)
     }
 
-    func requestMuted(_ muted: Bool, expectedTargetIdentifier: String? = nil,
+    func requestMuted(_ muted: Bool, expectedTargetIdentifier: String? = nil, cancellationScope: UUID? = nil,
                       completion: @escaping (VolumeRequestResult) -> Void) {
-        enqueue(.mute(muted), target: expectedTargetIdentifier ?? targetIdentifier, scope: nil, completion: completion)
+        enqueue(.mute(muted), target: expectedTargetIdentifier ?? targetIdentifier, scope: cancellationScope, completion: completion)
     }
 
     func cancelPendingRequests() {
@@ -280,7 +289,7 @@ final class VolumeController {
             if let restoringMute {
                 expectedMute = restoringMute
                 succeeded = writeMute(restoringMute, route: route, required: restoringMute, isCurrent: isCurrent) && succeeded
-            } else if value > 0 || muteAtZero {
+            } else if !preservesMuteOnGain && (value > 0 || muteAtZero) {
                 if !route.muteElements.isEmpty { expectedMute = value == 0 }
                 succeeded = writeMute(value == 0, route: route, required: false, isCurrent: isCurrent) && succeeded
             }
@@ -377,7 +386,7 @@ final class VolumeController {
         if changed {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                NotificationCenter.default.post(name: .swayAudioStateChanged, object: self)
+                NotificationCenter.default.post(name: self.notification, object: self)
             }
         }
     }
@@ -392,6 +401,11 @@ final class VolumeController {
 }
 
 private final class CoreAudioOutputBackend: AudioOutputBackend {
+    private let input: Bool
+    init(input: Bool = false) { self.input = input }
+    private var defaultSelector: AudioObjectPropertySelector {
+        input ? kAudioHardwarePropertyDefaultInputDevice : kAudioHardwarePropertyDefaultOutputDevice
+    }
     private struct Listener {
         let object: AudioObjectID
         var address: AudioObjectPropertyAddress
@@ -406,7 +420,7 @@ private final class CoreAudioOutputBackend: AudioOutputBackend {
         self.queue = queue
         self.handler = handler
         systemListener = addListener(object: AudioObjectID(kAudioObjectSystemObject),
-            address: AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            address: AudioObjectPropertyAddress(mSelector: defaultSelector,
                 mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)) { [weak self] _, _ in
                     self?.handler?(.route)
                 }
@@ -421,7 +435,7 @@ private final class CoreAudioOutputBackend: AudioOutputBackend {
     func currentOutput() -> AudioOutputToken? {
         var device = AudioDeviceID(kAudioDeviceUnknown)
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+        var address = AudioObjectPropertyAddress(mSelector: defaultSelector,
             mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
         guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address,
             0, nil, &size, &device) == noErr, device != kAudioDeviceUnknown else { return nil }
@@ -490,7 +504,7 @@ private final class CoreAudioOutputBackend: AudioOutputBackend {
     }
 
     private func property(_ selector: AudioObjectPropertySelector, element: AudioObjectPropertyElement) -> AudioObjectPropertyAddress {
-        AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioDevicePropertyScopeOutput, mElement: element)
+        AudioObjectPropertyAddress(mSelector: selector, mScope: input ? kAudioDevicePropertyScopeInput : kAudioDevicePropertyScopeOutput, mElement: element)
     }
 
     private func deviceName(_ device: AudioDeviceID) -> String {

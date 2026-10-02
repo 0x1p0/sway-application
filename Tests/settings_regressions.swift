@@ -241,6 +241,19 @@ enum SettingsRegressionTests {
             let resetReload = TrackpadSettings(defaults: reopened)
             try expect(resetReload.minimumFingers == 2 && !resetReload.topEdgeEnabled && near(resetReload.brightnessMin, 0.05), "reset itself persists across reload")
         }
+        for action in ZoneAction.allCases {
+            try isolated("action persists: \(action.rawValue)") { defaults, _ in
+                let settings = TrackpadSettings(defaults: defaults)
+                settings.leftZoneAction = action
+                settings.rightZoneAction = action
+                settings.topEdgeAction = action
+                settings.swipeUpShortcut = HotkeyCombo(keyCode: 24, modifiers: UInt32(cmdKey))
+                settings.swipeDownShortcut = HotkeyCombo(keyCode: 27, modifiers: UInt32(cmdKey))
+                let reopened = TrackpadSettings(defaults: defaults)
+                try expect(reopened.leftZoneAction == action && reopened.rightZoneAction == action && reopened.topEdgeAction == action, "all edges retain the action")
+                try expect(reopened.swipeUpShortcut == settings.swipeUpShortcut && reopened.swipeDownShortcut == settings.swipeDownShortcut, "custom pairs persist without global registration")
+            }
+        }
         print("\(checks) settings assertions passed across \(cases) isolated cases. No monitor, hardware writes, shortcuts, or login registrations ran.")
     }
 

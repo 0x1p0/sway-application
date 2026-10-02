@@ -7,6 +7,11 @@ import SwiftUI
 enum ZoneAction: String, CaseIterable, Identifiable {
     case brightness = "brightness"
     case volume     = "volume"
+    case microphoneLevel, keyboardBrightness, outputMute, microphoneMute
+    case mediaTracks, playPause, tabs, history, zoom, pages, documentEnds
+    case workspaces, missionControl, appWindows, showDesktop, switchApps, cycleWindows
+    case fullScreen, minimizeWindow, hideApp, spotlight, screenshotTools, emojiPicker
+    case customShortcut
     case disabled   = "disabled"
 
     var id: String { rawValue }
@@ -15,6 +20,30 @@ enum ZoneAction: String, CaseIterable, Identifiable {
         switch self {
         case .brightness: return "Brightness"
         case .volume:     return "Volume"
+        case .microphoneLevel: return "Microphone level"
+        case .keyboardBrightness: return "Keyboard backlight"
+        case .outputMute: return "Speaker mute"
+        case .microphoneMute: return "Microphone mute"
+        case .mediaTracks: return "Previous / next track"
+        case .playPause: return "Play / pause"
+        case .tabs: return "Switch tabs"
+        case .history: return "Back / forward"
+        case .zoom: return "App zoom"
+        case .pages: return "Page up / down"
+        case .documentEnds: return "Document start / end"
+        case .workspaces: return "Switch desktops"
+        case .missionControl: return "Mission Control"
+        case .appWindows: return "App Exposé"
+        case .showDesktop: return "Show desktop"
+        case .switchApps: return "Switch apps"
+        case .cycleWindows: return "Cycle app windows"
+        case .fullScreen: return "Toggle full screen"
+        case .minimizeWindow: return "Minimize window"
+        case .hideApp: return "Hide current app"
+        case .spotlight: return "Spotlight"
+        case .screenshotTools: return "Screenshot tools"
+        case .emojiPicker: return "Emoji & symbols"
+        case .customShortcut: return "Custom shortcuts"
         case .disabled:   return "Off"
         }
     }
@@ -23,7 +52,78 @@ enum ZoneAction: String, CaseIterable, Identifiable {
         switch self {
         case .brightness: return "sun.max.fill"
         case .volume:     return "speaker.wave.2.fill"
+        case .microphoneLevel: return "mic.fill"
+        case .keyboardBrightness: return "light.max"
+        case .outputMute: return "speaker.slash.fill"
+        case .microphoneMute: return "mic.slash.fill"
+        case .mediaTracks: return "forward.end.fill"
+        case .playPause: return "playpause.fill"
+        case .tabs: return "rectangle.on.rectangle"
+        case .history: return "arrow.left.arrow.right"
+        case .zoom: return "plus.magnifyingglass"
+        case .pages: return "doc.text"
+        case .documentEnds: return "arrow.up.to.line"
+        case .workspaces: return "rectangle.split.3x1"
+        case .missionControl: return "rectangle.3.group"
+        case .appWindows: return "macwindow.on.rectangle"
+        case .showDesktop: return "menubar.dock.rectangle"
+        case .switchApps: return "app.stack"
+        case .cycleWindows: return "macwindow"
+        case .fullScreen: return "arrow.up.left.and.arrow.down.right"
+        case .minimizeWindow: return "minus.rectangle"
+        case .hideApp: return "eye.slash"
+        case .spotlight: return "magnifyingglass"
+        case .screenshotTools: return "camera.viewfinder"
+        case .emojiPicker: return "face.smiling"
+        case .customShortcut: return "keyboard"
         case .disabled:   return "slash.circle"
+        }
+    }
+
+    var category: String {
+        switch self {
+        case .brightness, .keyboardBrightness: return "Display & keyboard"
+        case .volume, .microphoneLevel, .outputMute, .microphoneMute: return "Audio & microphone"
+        case .mediaTracks, .playPause: return "Media"
+        case .tabs, .history, .zoom, .pages, .documentEnds: return "Navigation"
+        case .workspaces, .missionControl, .appWindows, .showDesktop, .switchApps, .cycleWindows,
+             .fullScreen, .minimizeWindow, .hideApp: return "Windows & desktops"
+        case .spotlight, .screenshotTools, .emojiPicker, .customShortcut: return "Tools & shortcuts"
+        case .disabled: return "Other"
+        }
+    }
+    static let categories = ["Display & keyboard", "Audio & microphone", "Media", "Navigation", "Windows & desktops", "Tools & shortcuts", "Other"]
+    var isContinuous: Bool { self == .brightness || self == .volume || self == .microphoneLevel }
+    var repeatsWhileSwiping: Bool { [.keyboardBrightness, .tabs, .zoom, .pages, .cycleWindows].contains(self) }
+    var guidance: String {
+        switch self {
+        case .brightness: return "Up brightens; down dims the built-in display."
+        case .volume: return "Up raises; down lowers the default audio output."
+        case .microphoneLevel: return "Up raises; down lowers the default input’s gain. Does not record audio or change a meeting app’s mute button."
+        case .keyboardBrightness: return "Up brightens; down dims a supported backlit keyboard using macOS media keys. Ambient light can limit changes."
+        case .outputMute: return "Up unmutes; down mutes the default output. Requires a hardware mute control."
+        case .microphoneMute: return "Up unmutes; down mutes the default input device, only when hardware mute is available. Other inputs and app mute buttons are separate."
+        case .mediaTracks: return "Up sends next track; down sends previous track. One request per swipe to the active media app."
+        case .playPause: return "Either direction sends play/pause to the active media app. Once per swipe."
+        case .tabs: return "Up selects the next tab; down selects the previous tab. Uses Control-Tab in apps that support it."
+        case .history: return "Up goes forward; down goes back. Uses Command-] / Command-[ in supporting apps."
+        case .zoom: return "Up zooms in; down zooms out. Uses Command-+ / Command-− in supporting apps; not macOS accessibility zoom."
+        case .pages: return "Up sends Page Up; down sends Page Down to the current app."
+        case .documentEnds: return "Up goes to the start; down goes to the end. Uses Command-Up / Command-Down."
+        case .workspaces: return "Up moves to the next desktop; down to the previous. Requires macOS Control-Arrow shortcuts."
+        case .missionControl: return "Either direction opens Mission Control using Control-Up. Once per swipe."
+        case .appWindows: return "Either direction shows the current app’s windows using Control-Down."
+        case .showDesktop: return "Either direction sends F11 (Show Desktop). Requires this macOS shortcut to be enabled."
+        case .switchApps: return "Up switches to the next recent app; down switches in reverse. One switch per swipe."
+        case .cycleWindows: return "Up cycles forward through the current app’s windows; down cycles backward. Uses Command-`."
+        case .fullScreen: return "Either direction sends Control-Command-F to toggle the current window’s full screen."
+        case .minimizeWindow: return "Either direction sends Command-M to minimize the current window. Once per swipe."
+        case .hideApp: return "Either direction sends Command-H to hide the current app. Once per swipe."
+        case .spotlight: return "Either direction sends Command-Space. Requires the standard Spotlight shortcut."
+        case .screenshotTools: return "Either direction opens the macOS screenshot toolbar (Command-Shift-5). You choose what to capture; Sway records nothing."
+        case .emojiPicker: return "Either direction opens Emoji & Symbols using Control-Command-Space."
+        case .customShortcut: return "Record an up/right and down/left shortcut below. Each runs once per swipe, in the app where the gesture started."
+        case .disabled: return "This edge behaves like the rest of your trackpad."
         }
     }
 }
@@ -134,6 +234,12 @@ class TrackpadSettings: ObservableObject {
     }
     @Published var rightZoneAction: ZoneAction {
         didSet { defaults.set(rightZoneAction.rawValue, forKey: "rightZoneAction") }
+    }
+    @Published var swipeUpShortcut: HotkeyCombo {
+        didSet { if let data = try? JSONEncoder().encode(swipeUpShortcut) { defaults.set(data, forKey: "swipeUpShortcut") } }
+    }
+    @Published var swipeDownShortcut: HotkeyCombo {
+        didSet { if let data = try? JSONEncoder().encode(swipeDownShortcut) { defaults.set(data, forKey: "swipeDownShortcut") } }
     }
     @Published var brightnessMin: Double {
         didSet { defaults.set(brightnessMin, forKey: "brightnessMin") }
@@ -266,6 +372,8 @@ class TrackpadSettings: ObservableObject {
         let ra = defaults.string(forKey: "rightZoneAction") ?? ZoneAction.volume.rawValue
         leftZoneAction  = ZoneAction(rawValue: la)  ?? .brightness
         rightZoneAction = ZoneAction(rawValue: ra)  ?? .volume
+        swipeUpShortcut = defaults.data(forKey: "swipeUpShortcut").flatMap { try? JSONDecoder().decode(HotkeyCombo.self, from: $0) } ?? .none
+        swipeDownShortcut = defaults.data(forKey: "swipeDownShortcut").flatMap { try? JSONDecoder().decode(HotkeyCombo.self, from: $0) } ?? .none
 
         brightnessMin = Self.clamp(defaults.object(forKey: "brightnessMin") as? Double ?? 0.05, to: 0...0.95, fallback: 0.05)
         brightnessMax = max(Self.clamp(defaults.object(forKey: "brightnessMin") as? Double ?? 0.05, to: 0...0.95, fallback: 0.05) + 0.05, Self.clamp(defaults.object(forKey: "brightnessMax") as? Double ?? 1, to: 0.05...1, fallback: 1))

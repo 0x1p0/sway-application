@@ -24,6 +24,7 @@ struct RenderUI {
         }
 
         let fixtures = [
+            Fixture(surface: .actions),
             Fixture(surface: .welcome(false)),
             Fixture(surface: .welcome(true)),
             Fixture(surface: .updates),
@@ -37,6 +38,10 @@ struct RenderUI {
             Fixture(surface: .preferences(.gestures), suffix: "-top-edge", configure: {
                 $0.applyGesturePreset(.oneFinger)
                 $0.topEdgeEnabled = true
+            }),
+            Fixture(surface: .preferences(.gestures), suffix: "-extended-actions", configure: {
+                $0.leftZoneAction = .microphoneLevel
+                $0.rightZoneAction = .customShortcut
             }),
             Fixture(surface: .preferences(.gestures), suffix: "-one-percent", configure: {
                 $0.applyGesturePreset(.oneFinger)
@@ -75,6 +80,9 @@ struct RenderUI {
                 let width: CGFloat
                 var previewSettingsWindow: NSWindow?
                 switch fixture.surface {
+                case .actions:
+                    content = AnyView(EdgeActionLibrary(action: .constant(.microphoneLevel), edgeName: "Left edge action", preview: true))
+                    width = 590
                 case .welcome(let access):
                     content = AnyView(GettingStartedView(settings: settings, preview: true, hasAccess: access, openControls: {}))
                     width = 460
@@ -329,7 +337,14 @@ struct RenderUI {
               content.accessibilityValue() as? String == "68 percent" else {
             throw RenderError.invalidIndicatorValue
         }
-        print("9 native indicator value/accessibility checks passed.")
+        content.update(type: .microphone, value: 0.42)
+        guard content.accessibilityLabel() == "Microphone input level",
+              content.accessibilityValue() as? String == "42 percent" else { throw RenderError.invalidIndicatorValue }
+        content.update(type: .microphoneMute, value: 1)
+        guard content.accessibilityValue() as? String == "Mute on" else { throw RenderError.invalidIndicatorValue }
+        content.update(type: .microphoneMute, value: 0)
+        guard content.accessibilityValue() as? String == "Mute off" else { throw RenderError.invalidIndicatorValue }
+        print("12 native indicator value/accessibility checks passed.")
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             for horizontal in [false, true] {
                 for reduced in [false, true] {
@@ -417,6 +432,7 @@ struct RenderUI {
     }
 
     private enum Surface {
+        case actions
         case welcome(Bool)
         case updates
         case menu
@@ -424,6 +440,7 @@ struct RenderUI {
 
         var name: String {
             switch self {
+            case .actions: return "action-library"
             case .welcome(let access): return access ? "welcome-ready" : "welcome-permission"
             case .updates: return "updates"
             case .menu: return "menu"
