@@ -1,5 +1,47 @@
 "use strict";
 import { getReleaseDownload } from "./release.mjs";
+import { matchesAction } from "./catalog.mjs";
+
+const search = document.getElementById("action-search");
+const groups = [...document.querySelectorAll(".action-group")];
+const categoryButtons = [...document.querySelectorAll(".action-filters button")];
+const defaultOpen = new Map(groups.map((group) => [group, group.open]));
+let selectedCategory = "all";
+function filterActions() {
+  let total = 0;
+  const filtering = Boolean(search.value.trim()) || selectedCategory !== "all";
+  for (const group of groups) {
+    let visible = 0;
+    for (const action of group.querySelectorAll("[data-action-id]")) {
+      const matches = matchesAction(`${action.textContent} ${action.dataset.keywords || ""}`,
+        search.value, group.dataset.category, selectedCategory);
+      action.hidden = !matches;
+      if (matches) visible++;
+    }
+    total += visible;
+    group.hidden = visible === 0;
+    group.open = filtering ? visible > 0 : defaultOpen.get(group);
+    group.querySelector(".category-count").textContent = String(visible).padStart(2, "0");
+  }
+  document.getElementById("action-count").textContent = filtering
+    ? `${total} matching ${total === 1 ? "action" : "actions"}`
+    : "26 actions · plus Off for any edge";
+  document.getElementById("action-empty").hidden = total !== 0;
+  for (const button of categoryButtons)
+    button.setAttribute("aria-pressed", String(button.dataset.category === selectedCategory));
+}
+search.addEventListener("input", filterActions);
+for (const button of categoryButtons) button.addEventListener("click", () => {
+  selectedCategory = button.dataset.category;
+  filterActions();
+});
+document.getElementById("clear-action-search").addEventListener("click", () => {
+  search.value = "";
+  selectedCategory = "all";
+  filterActions();
+  search.focus();
+});
+document.getElementById("library-toolbar").hidden = false;
 
 // This preview never reads the trackpad or changes system settings.
 const defaults = { brightness: 68, volume: 42 };

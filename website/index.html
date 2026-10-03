@@ -9,12 +9,12 @@
     <meta property="og:url" content="https://sway-application.vercel.app/">
     <meta
       name="description"
-      content="Control your Mac’s volume and brightness with a swipe along your trackpad’s edges. A quiet, customizable menu bar app by 0x1p0. Free for macOS."
+      content="26 ways to control your Mac from your trackpad’s edges. Volume, brightness, microphone, media, windows, and custom shortcuts. Free for macOS, by 0x1p0."
     />
     <meta property="og:title" content="Sway — A lighter touch for your Mac." />
     <meta
       property="og:description"
-      content="Your volume. Your brightness. Right at your fingertips. Discover Sway, a free macOS utility by 0x1p0."
+      content="A lighter touch. More possibilities. Explore 26 edge actions in Sway 1.1.0, the free macOS menu bar app by 0x1p0."
     />
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/png" href="/assets/sway-icon.png" />
@@ -34,7 +34,7 @@
           /><span>Sway</span></a
         >
         <div class="nav-links">
-          <a href="#experience">Experience</a><a href="#details">The details</a
+          <a href="#actions">The controls</a><a href="#details">The details</a
           ><a href="https://github.com/0x1p0/sway-application">GitHub</a>
         </div>
         <a class="button button-small button-dark" href="#download">Get Sway</a>
@@ -43,21 +43,21 @@
     <main id="main">
       <section class="hero wrap" aria-labelledby="hero-title">
         <p class="eyebrow">
-          <span class="status-dot"></span> SMALL APP. LOVELY DIFFERENCE.
+          <span class="status-dot"></span> SMALL APP. MORE POSSIBILITIES.
         </p>
         <h1 id="hero-title">
           A lighter touch.<br /><span>A better flow.</span>
         </h1>
         <p class="hero-description">
-          Volume and brightness, right at your fingertips.<br
+          Your sound. Your windows. Your next move.<br
             class="desktop-break"
           />
-          Just swipe the edge of your trackpad. That’s Sway.
+          26 ways to make the edges of your trackpad yours.
         </p>
         <div class="hero-actions">
           <a
             class="button button-dark download-link"
-            href="https://github.com/0x1p0/sway-application/releases/download/v1.0.14/Sway-1.0.14-macos-universal.dmg"
+            href="https://github.com/0x1p0/sway-application/releases/download/v1.1.0/Sway-1.1.0-macos-universal.dmg"
             ><svg
               class="icon"
               viewBox="0 0 24 24"
@@ -76,8 +76,9 @@
         </div>
         <p class="compatibility">
           Free · macOS 13+ · Apple silicon & Intel ·
-          <span class="release-version">v1.0.14</span>
+          <span class="release-version">v1.1.0</span>
         </p>
+        <a class="release-highlight" href="#actions">New in 1.1.0 <span>Meet your expanded action library</span><span aria-hidden="true">↗</span></a>
         <div class="hero-demo" id="experience">
           <div class="demo-toolbar">
             <span class="demo-label"
@@ -177,7 +178,7 @@
           </div>
           <div class="demo-legend">
             <span>Left edge <strong>Brightness</strong></span
-            ><span class="gesture-note">Two fingers. One simple swipe.</span
+            ><span class="gesture-note">The default setup. Make it yours below.</span
             ><span>Right edge <strong>Volume</strong></span>
           </div>
           <p class="demo-disclaimer">
@@ -188,17 +189,93 @@
           </p>
         </div>
       </section>
-      <section class="intro wrap section-space" id="details">
-        <p class="eyebrow">LESS REACHING. MORE DOING.</p>
-        <h2>The controls you need.<br /><span>Exactly where you are.</span></h2>
+      <section class="intro wrap section-space" id="actions" aria-labelledby="actions-title">
+        <p class="eyebrow">THE ACTION LIBRARY · NEW IN 1.1.0</p>
+        <h2 id="actions-title">One small gesture.<br /><span>26 possibilities.</span></h2>
         <p>
-          No hunting for keys. No interrupting a good thought.<br
-            class="desktop-break"
-          />
-          Just a small gesture that feels like second nature.
+          Keep brightness on the left. Put your next track on the right.<br class="desktop-break" />
+          Or start with something entirely your own.
         </p>
       </section>
-      <section class="feature-grid wrap" aria-label="Thoughtful by design">
+      <section class="action-library wrap" aria-label="Explore all edge actions">
+        <div class="library-toolbar" id="library-toolbar" hidden>
+          <label class="action-search" for="action-search"><span>Find your action</span><input id="action-search" type="search" placeholder="Try microphone, tabs, or keyboard…" autocomplete="off" aria-controls="action-groups" /></label>
+          <div class="action-filters" role="group" aria-label="Filter actions by category">
+            <button type="button" data-category="all" aria-pressed="true">All actions</button>
+            <button type="button" data-category="display" aria-pressed="false">Display</button>
+            <button type="button" data-category="audio" aria-pressed="false">Audio</button>
+            <button type="button" data-category="media" aria-pressed="false">Media</button>
+            <button type="button" data-category="navigation" aria-pressed="false">Navigation</button>
+            <button type="button" data-category="windows" aria-pressed="false">Windows</button>
+            <button type="button" data-category="tools" aria-pressed="false">Tools</button>
+          </div>
+          <p class="action-count" id="action-count" role="status" aria-live="polite" aria-atomic="true">26 actions · plus Off for any edge</p>
+        </div>
+        <div class="action-groups" id="action-groups">
+          <details class="action-group" data-category="display" open>
+            <summary><span class="category-mark" aria-hidden="true">☀</span><span class="category-title">Display & keyboard<small>Find your comfortable light.</small></span><span class="category-count">02</span><span class="detail-plus" aria-hidden="true"></span></summary>
+            <dl class="action-list">
+              <div data-action-id="brightness"><dt>Display brightness</dt><dd>Up brightens; down dims the built-in display. External-monitor DDC control isn’t supported.</dd></div>
+              <div data-action-id="keyboardBrightness" data-keywords="keyboard lighting illumination"><dt>Keyboard backlight</dt><dd>Up brightens; down dims a supported backlit keyboard. macOS and ambient-light conditions can limit changes.</dd></div>
+            </dl>
+          </details>
+          <details class="action-group" data-category="audio">
+            <summary><span class="category-mark" aria-hidden="true">♪</span><span class="category-title">Audio & microphone<small>A little more control over your sound.</small></span><span class="category-count">04</span><span class="detail-plus" aria-hidden="true"></span></summary>
+            <dl class="action-list">
+              <div data-action-id="volume"><dt>Output volume</dt><dd>Up raises; down lowers the default audio output. Requires a device with software volume control.</dd></div>
+              <div data-action-id="microphoneLevel" data-keywords="mic input gain"><dt>Microphone level</dt><dd>Adjust the default input’s gain without recording audio. Changing gain never unmutes the device.</dd></div>
+              <div data-action-id="outputMute"><dt>Speaker mute</dt><dd>Down mutes; up unmutes the default output. Available when the device provides a hardware mute control.</dd></div>
+              <div data-action-id="microphoneMute" data-keywords="mic input"><dt>Microphone mute</dt><dd>Down mutes; up unmutes the default input, when readable, writable hardware mute is available. Other inputs and app mute buttons stay separate.</dd></div>
+            </dl>
+          </details>
+          <details class="action-group" data-category="media">
+            <summary><span class="category-mark" aria-hidden="true">▷</span><span class="category-title">Media<small>Keep the soundtrack moving.</small></span><span class="category-count">02</span><span class="detail-plus" aria-hidden="true"></span></summary>
+            <dl class="action-list">
+              <div data-action-id="mediaTracks" data-keywords="music song skip"><dt>Previous / next track</dt><dd>Up requests the next track; down requests the previous track in the active media app. One request per swipe.</dd></div>
+              <div data-action-id="playPause" data-keywords="music song"><dt>Play / pause</dt><dd>Swipe either way to send play/pause to the active media app. Lift your fingers before toggling again.</dd></div>
+            </dl>
+          </details>
+          <details class="action-group" data-category="navigation">
+            <summary><span class="category-mark" aria-hidden="true">↔</span><span class="category-title">Navigation<small>Less reaching. More getting there.</small></span><span class="category-count">05</span><span class="detail-plus" aria-hidden="true"></span></summary>
+            <dl class="action-list">
+              <div data-action-id="tabs" data-keywords="browser"><dt>Switch tabs</dt><dd>Up selects the next tab; down selects the previous. Uses Control-Tab in supporting apps.</dd></div>
+              <div data-action-id="history" data-keywords="browser history"><dt>Back / forward</dt><dd>Up goes forward; down goes back. Uses Command-] and Command-[ in supporting apps.</dd></div>
+              <div data-action-id="zoom"><dt>App zoom</dt><dd>Up zooms in; down zooms out with standard app shortcuts. This isn’t macOS Accessibility Zoom.</dd></div>
+              <div data-action-id="pages" data-keywords="scroll reading"><dt>Page up / down</dt><dd>Send Page Up or Page Down to the current app as you swipe.</dd></div>
+              <div data-action-id="documentEnds" data-keywords="reading"><dt>Document start / end</dt><dd>Up goes to the start; down goes to the end, using Command-Up and Command-Down.</dd></div>
+            </dl>
+          </details>
+          <details class="action-group" data-category="windows">
+            <summary><span class="category-mark" aria-hidden="true">▣</span><span class="category-title">Windows & desktops<small>A little room to think.</small></span><span class="category-count">09</span><span class="detail-plus" aria-hidden="true"></span></summary>
+            <dl class="action-list">
+              <div data-action-id="workspaces" data-keywords="spaces workspaces"><dt>Switch desktops</dt><dd>Up moves to the next desktop; down to the previous. Requires macOS Control-Arrow shortcuts.</dd></div>
+              <div data-action-id="missionControl"><dt>Mission Control</dt><dd>Swipe either way to send Control-Up and get an overview of your windows.</dd></div>
+              <div data-action-id="appWindows"><dt>App Exposé</dt><dd>Swipe either way to show the current app’s windows using Control-Down.</dd></div>
+              <div data-action-id="showDesktop"><dt>Show desktop</dt><dd>Swipe either way to send F11. The macOS Show Desktop shortcut must be enabled.</dd></div>
+              <div data-action-id="switchApps"><dt>Switch apps</dt><dd>Up switches to the next recent app; down switches in reverse. One switch per swipe.</dd></div>
+              <div data-action-id="cycleWindows"><dt>Cycle app windows</dt><dd>Up cycles forward through the current app’s windows; down cycles backward, using Command-`.</dd></div>
+              <div data-action-id="fullScreen"><dt>Toggle full screen</dt><dd>Swipe either way to send Control-Command-F to a supporting app.</dd></div>
+              <div data-action-id="minimizeWindow"><dt>Minimize window</dt><dd>Swipe either way to minimize the current window with Command-M.</dd></div>
+              <div data-action-id="hideApp"><dt>Hide current app</dt><dd>Swipe either way to hide the current app with Command-H.</dd></div>
+            </dl>
+          </details>
+          <details class="action-group" data-category="tools">
+            <summary><span class="category-mark" aria-hidden="true">⌘</span><span class="category-title">Tools & shortcuts<small>Your everyday, a swipe away.</small></span><span class="category-count">04</span><span class="detail-plus" aria-hidden="true"></span></summary>
+            <dl class="action-list">
+              <div data-action-id="spotlight" data-keywords="search"><dt>Spotlight</dt><dd>Swipe either way to send Command-Space. Requires the standard Spotlight shortcut.</dd></div>
+              <div data-action-id="screenshotTools" data-keywords="capture"><dt>Screenshot tools</dt><dd>Open the macOS screenshot toolbar with Command-Shift-5. You choose what to capture; Sway records nothing.</dd></div>
+              <div data-action-id="emojiPicker" data-keywords="characters"><dt>Emoji & symbols</dt><dd>Open the character picker with Control-Command-Space. Either swipe direction works.</dd></div>
+              <div data-action-id="customShortcut" data-keywords="keyboard hotkey"><dt>Custom shortcuts</dt><dd>Record an up/right and down/left shortcut in Sway. Each runs once per swipe in the starting app. The pair is shared by edges assigned to Custom shortcuts.</dd></div>
+            </dl>
+          </details>
+        </div>
+        <div class="action-empty" id="action-empty" hidden><h3>No matching actions.</h3><p>Try another word or browse the complete library.</p><button class="button button-light" id="clear-action-search" type="button">Show all actions</button></div>
+        <div class="library-notes">
+          <p><strong>Your edges, independently.</strong> Open Settings → Gestures and select either edge’s action. Optional top edges use the same library. Choose Off to leave an edge alone. Your existing assignments stay unchanged after updating.</p>
+          <p><strong>A preview, not a remote control.</strong> Browsing here doesn’t change Sway. Directions shown are the defaults; reversing a gesture reverses its action. For horizontal top edges, right maps to up and left to down. Shortcuts depend on the app, keyboard layout, and macOS settings.</p>
+        </div>
+      </section>
+      <section class="feature-grid wrap" id="details" aria-label="Thoughtful by design">
         <article class="feature-card native-card">
           <p class="card-kicker">RIGHT AT HOME</p>
           <h3>Feels like your Mac.<br />Because it belongs there.</h3>
@@ -287,7 +364,7 @@
           <h3>Intent, not accidents.</h3>
           <p>
             Palm and typing protection check how a gesture starts and moves.
-            Test the rules safely without changing your Mac’s levels.
+            Test the rules safely without changing hardware or triggering actions.
           </p>
         </article>
         <article class="feature-card small-card">
@@ -372,8 +449,8 @@
             </summary>
             <div class="detail-content">
               <p>
-                Pick Everyday, Precise, or One finger. Assign brightness,
-                volume, or no action to each edge. Set side widths from 1–40%,
+                Pick Everyday, Precise, or One finger. Assign any of the 26
+                actions, or Off, independently to each edge. Set side widths from 1–40%,
                 sensitivity, direction, and the distance needed to activate a
                 gesture.
               </p>
@@ -400,8 +477,8 @@
               <p>
                 The safe test view explains which rule accepted or stopped a
                 gesture, including contact count, distance, straightness, and
-                duration. It leaves volume, brightness, the pointer, and haptics
-                unchanged. Lift all fingers before trying again.
+                duration. It never executes an action, sends a shortcut, or changes
+                hardware. Lift all fingers before trying again.
               </p>
             </div>
           </details>
@@ -415,7 +492,8 @@
             <div class="detail-content">
               <p>
                 Set minimum and maximum comfort levels, configure mute behavior,
-                or use Undo after an adjustment. Menu bar sliders are still
+                or use Undo after a volume or brightness adjustment. Undo does
+                not reverse microphone changes or shortcut actions. Menu bar sliders are still
                 available when gestures are paused.
               </p>
               <p>
@@ -499,8 +577,9 @@
             <span class="step-number">3</span>
             <h3>Find your flow.</h3>
             <p>
-              Put two fingers on the left edge for brightness, or the right for
-              volume. Swipe up or down. That’s it.
+              Start with brightness on the left and volume on the right.
+              Make either edge your own in Settings → Gestures. Test safely,
+              then swipe up or down.
             </p>
           </li>
         </ol>
@@ -573,6 +652,23 @@
           </details>
           <details>
             <summary>
+              Does microphone mute work everywhere?<span class="detail-plus" aria-hidden="true"></span>
+            </summary>
+            <div class="detail-content">
+              <p>No. Sway controls only the current default input, and hardware mute is offered only when its driver supports reading and changing it. Other inputs and a meeting app’s mute button are separate. Setting input gain to zero is not the same as muting. Sway never opens a recording stream, and adjusting gain never unmutes the device.</p>
+            </div>
+          </details>
+          <details>
+            <summary>
+              Will every action work with my setup?<span class="detail-plus" aria-hidden="true"></span>
+            </summary>
+            <div class="detail-content">
+              <p>The action library explains what each option needs and marks unsupported hardware controls. Keyboard backlight requires a supported keyboard; ambient light and macOS may limit it. Window, navigation, and tool actions send standard shortcuts, so behavior depends on your app, keyboard layout, and enabled macOS shortcuts.</p>
+              <p>Continuous controls follow your swipe. Repeating commands use movement thresholds and rate limits. Other commands run once per swipe, then wait for a full finger lift. Commands stop if the foreground app changes.</p>
+            </div>
+          </details>
+          <details>
+            <summary>
               Why does it need Accessibility access?<span
                 class="detail-plus"
                 aria-hidden="true"
@@ -581,7 +677,8 @@
             <div class="detail-content">
               <p>
                 Accessibility lets Sway recognize edge swipes and prevent
-                accepted gestures from also scrolling your page. You can use the
+                accepted gestures from also scrolling your page. It also lets
+                Sway send the keyboard shortcuts you assign. You can use the
                 menu bar sliders without it. The setup guide is always available
                 in Settings → About & help.
               </p>
@@ -644,13 +741,14 @@
         <p>Free to download. Easy to make your own.</p>
         <a
           class="button button-dark download-link"
-          href="https://github.com/0x1p0/sway-application/releases/download/v1.0.14/Sway-1.0.14-macos-universal.dmg"
+          href="https://github.com/0x1p0/sway-application/releases/download/v1.1.0/Sway-1.1.0-macos-universal.dmg"
           >Download Sway for Mac</a
         >
         <p class="compatibility">
           macOS 13+ · Apple silicon & Intel ·
-          <span class="release-version">v1.0.14</span>
+          <span class="release-version">v1.1.0</span>
         </p>
+        <p class="release-notes-link"><a href="https://github.com/0x1p0/sway-application/releases/tag/v1.1.0">Read what’s new in 1.1.0 <span aria-hidden="true">↗</span></a></p>
         <p class="download-caveat">
           Sway is self-signed, not notarized by Apple.<br />Read the
           <a href="https://github.com/0x1p0/sway-application#install"

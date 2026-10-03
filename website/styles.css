@@ -574,7 +574,7 @@ h2 {
   .demo-legend {
     padding-inline: 65px;
   }
-  .gesture-note {
+  .demo-legend .gesture-note {
     display: none;
   }
 }
@@ -1523,6 +1523,228 @@ h2 span {
 }
 .center-caption {
   font-size: 12px;
+}
+[hidden] {
+  display: none !important;
+}
+.release-highlight {
+  display: inline-flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 24px;
+  padding: 11px 17px;
+  background: #e9ece4;
+  border: 1px solid #dce1d6;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #45523b;
+}
+.release-highlight span:first-child {
+  font-weight: 400;
+}
+.release-highlight:hover {
+  background: #e1e7da;
+}
+#actions {
+  padding-bottom: 42px;
+}
+.action-library {
+  max-width: 960px;
+  padding-bottom: 110px;
+}
+.library-toolbar {
+  margin-bottom: 22px;
+}
+.action-search {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 550;
+}
+.action-search input {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cdd2c6;
+  background: #ffffffa3;
+  color: var(--ink);
+  border-radius: 16px;
+  padding: 16px 20px;
+  font-size: 16px;
+}
+.action-search input::placeholder {
+  color: #6b7064;
+  opacity: 1;
+}
+.action-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 15px;
+}
+.action-filters button {
+  min-height: 40px;
+  border: 1px solid #d7dbd0;
+  border-radius: 100px;
+  background: transparent;
+  color: #51594a;
+  padding: 8px 16px;
+  font-size: 13px;
+  transition: background 0.2s, color 0.2s;
+}
+.action-filters button:hover {
+  background: #e9ece4;
+}
+.action-filters button[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: white;
+}
+.action-count {
+  color: #67715d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.action-group {
+  background: #eeefeb;
+  border: 1px solid #e2e5dc;
+  border-radius: 22px;
+  margin-bottom: 10px;
+}
+.action-group summary {
+  padding: 22px 26px;
+  gap: 20px;
+}
+.category-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  font-size: 25px;
+  background: #e0e5d9;
+  border-radius: 13px;
+  color: #526149;
+}
+.category-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 550;
+  min-width: 0;
+}
+.category-title small {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #66715c;
+  margin-top: 4px;
+  letter-spacing: 0;
+}
+.category-count {
+  color: #69755d;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.action-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 32px;
+  margin: 0 26px;
+  padding: 26px 0 30px;
+  border-top: 1px solid #d8ddcf;
+}
+.action-list dt {
+  font-weight: 550;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.action-list dd {
+  margin: 0;
+  color: #606a56;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.library-notes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-top: 28px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #67715d;
+}
+.library-notes strong {
+  display: block;
+  color: #3f4a35;
+  margin-bottom: 6px;
+  font-weight: 550;
+}
+.action-empty {
+  padding: 40px 24px;
+  border: 1px dashed #cdd2c6;
+  border-radius: 22px;
+  text-align: center;
+}
+.action-empty h3 {
+  font-weight: 550;
+  font-size: 21px;
+}
+.action-empty p {
+  color: var(--muted);
+  margin: 12px 0 20px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.download-section .release-notes-link {
+  margin-top: 18px;
+  font-size: 13px !important;
+  color: #46543a !important;
+}
+.release-notes-link a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@media (max-width: 600px) {
+  .action-library {
+    padding-bottom: 70px;
+  }
+  .action-list, .library-notes {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .action-group summary {
+    padding: 20px 16px;
+    gap: 12px;
+  }
+  .category-mark {
+    width: 34px;
+    height: 34px;
+    font-size: 22px;
+    border-radius: 11px;
+  }
+  .category-title {
+    font-size: 16px;
+  }
+  .category-title small {
+    font-size: 12px;
+  }
+  .action-list {
+    margin-inline: 20px;
+    padding-top: 20px;
+  }
+  .action-filters button {
+    padding-inline: 14px;
+    min-height: 44px;
+  }
+  .release-highlight {
+    max-width: 310px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   :root {

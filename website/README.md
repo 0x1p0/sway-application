@@ -10,7 +10,7 @@ From this directory, run `python3 -m http.server 4173 --bind 127.0.0.1`, then op
 
 ## Checks
 
-Run `node --test tests/*.test.mjs`. Test both native preview sliders with a mouse, touch, and arrow keys. Check 390 px and desktop layouts, expanded details, and reduced-motion preferences.
+Run `node --test tests/*.test.mjs`. Test both native preview sliders with a mouse, touch, and arrow keys. Check the action library's text search, category filters, empty-state reset, and keyboard access. Check mobile and desktop layouts, expanded details, and reduced-motion preferences. The full action catalog and download links also work without JavaScript; enhanced search controls are revealed only when initialized.
 
 ## Deployment
 
@@ -18,6 +18,8 @@ Deploy **this directory**, not the repository root: `vercel --prod`. Local proje
 
 The Vercel project is `sway-application`. Deployments currently use the authenticated CLI, not an automatic Git deployment hook. After pushing site changes, run `cd website && vercel --prod` from the repository root. Never upload local `.env*` files; `.vercelignore` excludes them.
 
-Download links fall back to the verified v1.0.14 DMG. A single public GitHub API request updates them to the latest stable universal DMG, after validating the exact repository, tag, filename, and URL. API failures leave the fallback intact. Refresh the static fallback when appropriate. The website does not install or launch Sway.
+Download links fall back to the verified v1.1.0 DMG. A single public GitHub API request updates them to the latest stable universal DMG, after validating the exact repository, tag, filename, and URL. API failures leave the fallback intact. Refresh the static fallback when appropriate. The website does not install or launch Sway.
+
+The 26-action catalog matches the native app's `ZoneAction` identifiers; a regression test checks parity to catch missing or invented features. Hardware and shortcut limitations, microphone scope, and the self-signed distribution status are disclosed. Search is local and never accesses the microphone or trackpad. Website controls do not configure the installed app.
 
 The app icon is reused from Sway’s existing assets. Fonts are local system fonts; no remote fonts, analytics, ads, or persistent browser storage are used. Hosting and the public GitHub release request still expose ordinary connection metadata to those providers.
